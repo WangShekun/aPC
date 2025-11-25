@@ -13,11 +13,11 @@ addpath(genpath('benchmark'));
 addpath(genpath('apc_train'));
 
 ModelOpts = struct();
-ModelOpts.Order    = 3:6;      % 最大多项式阶数
-ModelOpts.qnorm    = 0.7;       % q-norm
+ModelOpts.Order    = 3;      % 最大多项式阶数
+ModelOpts.qnorm    = 1;       % q-norm
 ModelOpts.num_vars = 20;       % 输入维度
 ModelOpts.ReductionMethod = 'pls';
-ModelOpts.red_dim  = 5:15;
+ModelOpts.red_dim  = 18;
 ModelOpts.aPC_Method = '2012';      % 可选 '2012' | '2018'
 ModelOpts.RegressionMethod = 'LARS';
 
@@ -68,7 +68,7 @@ end
 myInput = uq_createInput(InputOpts);
 
 data = struct();
-data.X_train = uq_getSample(myInput, 1000);
+data.X_train = uq_getSample(myInput, 4000);
 data.Y_train = morris10(data.X_train);
 
 data.X_val   = uq_getSample(myInput, 2000);
