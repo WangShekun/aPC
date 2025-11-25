@@ -1,0 +1,41 @@
+function y_pred = aPC_Predict(X_new, results, ModelOpts, ReduceModel)
+% aPC_Predict：支持任意降维方法（PLS, PCA, ICA…）
+
+    % ====== 1) 标准化，使用训练时的 mu & sigma ======
+    mu = results.mu(:).';
+    sigma = results.sigma(:).';
+    sigma_safe = sigma;
+    sigma_safe(sigma_safe == 0) = 1;
+
+    U_new = (X_new - mu) ./ sigma_safe;   % 映射到 U 空间
+
+    % ====== 2) 降维（统一接口） ======
+    if ~isempty(ReduceModel)
+        U_new = ReduceModel.transform(U_new);
+    end
+
+    M = size(U_new, 2);   % 降维后的维数
+    N = size(U_new, 1);
+
+    % ====== 3) 多项式基构造 ======
+    poly_coeffs = results.poly_coeffs;
+    Ind = results.Indices;
+    c = results.coefficients(:);
+
+    Pmax = max(Ind,[],'all');
+    univ_vals_new = zeros(N, M, Pmax+1);
+
+    for j = 1:M
+        coeffs_j = poly_coeffs{j};
+        u_j = U_new(:,j);
+        for k = 0:Pmax
+            univ_vals_new(:,j,k+1) = polyval(coeffs_j{k+1}, u_j);
+        end
+    end
+
+    % ====== 4) 多维 Ψ 构造 ======
+    Psi_new = aPC_PCE_create_Psi(Ind, univ_vals_new);
+
+    % ====== 5) 最终预测 ======
+    y_pred = Psi_new * c;
+end
