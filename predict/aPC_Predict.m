@@ -14,6 +14,8 @@ function y_pred = aPC_Predict(X_new, results, ModelOpts, ReduceModel)
         U_new = ReduceModel.transform(U_new);
     end
 
+    % U_new = (U_new - results.mu2(:).') ./ results.sigma2(:).';
+
     M = size(U_new, 2);   % 降维后的维数
     N = size(U_new, 1);
 

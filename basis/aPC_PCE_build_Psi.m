@@ -8,7 +8,7 @@ IndicesFull = ModelOpts.Indices;
 Pmax = max(IndicesFull, [], 'all');
 
 % 2) 对每一维一次性评估 0..P 阶一维 aPC，并拿到多项式系数
-[univ_vals, poly_coeffs] = aPC_PCE_eval_unipoly(data.U, Pmax, ModelOpts);
+[univ_vals, poly_coeffs] = aPC_eval_univ_basis(data.U, Pmax, ModelOpts);
 
 % 3) 构造多维基函数矩阵 Psi
 Psi = aPC_PCE_create_Psi(IndicesFull, univ_vals);

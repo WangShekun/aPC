@@ -1,54 +1,49 @@
 function aPC_printUQ(UQ)
-% aPC_print_UQ
-% -------------------------------------------
-% 打印不确定性量化（UQ）结果：
-%   - mean, variance, std
-%   - CI95
-%   - skewness / kurtosis
-%   - VaR95 / CVaR95
-%
-% 本函数只输出 “不确定性相关量”，
-% 不涉及模型误差，也不使用 y_val。
-% -------------------------------------------
 
-line        = repmat('-', 1, 70);
-line_double = repmat('=', 1, 70);
+line  = repmat('-', 1, 72);
+line2 = repmat('=', 1, 72);
 
-fprintf('\n%s\n', line_double);
-fprintf('Uncertainty Quantification (UQ) Report\n');
+fprintf('\n%s\n', line2);
+fprintf('aPC-based Uncertainty Quantification\n');
+fprintf('%s\n', line2);
+
+%% ----- Analytic statistics (always available if computed) -----
+if isfield(UQ,'mean')
+    fprintf('  Mean (E[Y])             : %12.6e\n', UQ.mean);
+end
+
+if isfield(UQ,'var')
+    fprintf('  Variance (Var[Y])       : %12.6e\n', UQ.var);
+end
+
+if isfield(UQ,'std')
+    fprintf('  Std deviation (Std[Y])  : %12.6e\n', UQ.std);
+end
+
 fprintf('%s\n', line);
 
-%% =====================================================
-%% 1) 解析 UQ（来自 PCE 系数）
-%% =====================================================
-fprintf('aPC-based analytic statistics:\n');
-fprintf('  Mean (E[Y])             : %12.6e\n', UQ.mean);
-fprintf('  Variance (Var[Y])       : %12.6e\n', UQ.var);
-fprintf('  Std deviation (Std[Y])  : %12.6e\n', UQ.std);
-fprintf('%s\n', line);
+%% ----- Extended statistics (conditional) -----
+if isfield(UQ,'CI95')
+    fprintf('  95%% credible interval   : [%12.6e, %12.6e]\n', ...
+            UQ.CI95(1), UQ.CI95(2));
+end
 
-%% =====================================================
-%% 2) 分布形状（来自 y_{pred} ）
-%% =====================================================
-fprintf('Distribution shape (from predicted samples):\n');
-fprintf('  Skewness                : %12.6e\n', UQ.skew);
-fprintf('  Kurtosis                : %12.6e\n', UQ.kurt);
-fprintf('%s\n', line);
+if isfield(UQ,'skew')
+    fprintf('  Skewness                : %12.6e\n', UQ.skew);
+end
 
-%% =====================================================
-%% 3) 置信区间（CI）
-%% =====================================================
-fprintf('Confidence Intervals (from predicted samples):\n');
-fprintf('  95%% CI  [2.5%%, 97.5%%] : [%12.6e , %12.6e]\n', ...
-         UQ.CI95(1), UQ.CI95(2));
-fprintf('%s\n', line);
+if isfield(UQ,'kurt')
+    fprintf('  Kurtosis                : %12.6e\n', UQ.kurt);
+end
 
-%% =====================================================
-%% 4) 风险度量（VaR / CVaR）
-%% =====================================================
-fprintf('Tail risk metrics:\n');
-fprintf('  VaR95 (95%% quantile)   : %12.6e\n', UQ.VaR95);
-fprintf('  CVaR95 (tail mean)      : %12.6e\n', UQ.CVaR95);
-fprintf('%s\n', line_double);
+if isfield(UQ,'VaR95')
+    fprintf('  VaR_{95}                : %12.6e\n', UQ.VaR95);
+end
+
+if isfield(UQ,'CVaR95')
+    fprintf('  CVaR_{95}               : %12.6e\n', UQ.CVaR95);
+end
+
+fprintf('%s\n\n', line2);
 
 end

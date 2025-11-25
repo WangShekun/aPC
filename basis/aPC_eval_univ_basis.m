@@ -1,4 +1,4 @@
-function [univ_vals, poly_coeffs] = aPC_eval_univ_basis(U, BasisParameters, ModelOpts)
+function [univ_vals, poly_coeffs] = aPC_eval_univ_basis(U, MaxDegrees, ModelOpts)
 % aPC_eval_univ_basis
 % --------------------------------------------------------
 % 输入:
@@ -11,7 +11,7 @@ function [univ_vals, poly_coeffs] = aPC_eval_univ_basis(U, BasisParameters, Mode
 %   poly_coeffs: 1×M cell，每个维度 1×(P+1) 的多项式系数
 % --------------------------------------------------------
 
-P = BasisParameters.MaxDegrees;
+P = MaxDegrees;
 [N, M] = size(U);
 
 univ_vals   = zeros(N, M, P+1);

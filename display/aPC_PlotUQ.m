@@ -15,6 +15,11 @@ function aPC_PlotUQ(UQ, Data)
 %   Data.Y_pred
 % ------------------------------------------------------------
 
+% 如果没有预测样本，则跳过绘图
+if nargin < 2 || ~isfield(Data,'Y_pred') || isempty(Data.Y_pred)
+    return;
+end
+
 y = Data.Y_pred(:);
 N = length(y);
 

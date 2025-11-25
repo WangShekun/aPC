@@ -41,7 +41,7 @@ fprintf('%s\n', line);
 %% ============================================================
 if any(modules == "basic")
     fprintf('%-28s : %s\n', 'Regression method', upper(results.method));
-    fprintf('%-28s : %d\n', 'Total PCE terms', nnz(results.coefficients));
+    fprintf('%-28s : %d\n', 'Total PCE terms', size(results.coefficients,1));
     fprintf('%-28s : %d\n', 'Max polynomial order', InputOpts.Order);
     fprintf('%-28s : %.2f\n', 'q-norm', InputOpts.qnorm);
 
