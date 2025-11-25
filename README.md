@@ -138,7 +138,7 @@ Located in the `display/` folder.
 ## 📁 Directory Structure
 
 ```
-aPC_PLS
+aPC
 ├── apc_train          % Unified training interface
 │   └── aPC_Train.m
 ├── basis              % Polynomial basis construction
