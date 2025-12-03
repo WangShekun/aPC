@@ -13,11 +13,15 @@ addpath(genpath('benchmark'));
 addpath(genpath('apc_train'));
 
 ModelOpts = struct();
-ModelOpts.Order    = 3;      % 最大多项式阶数
+ModelOpts.Order    = 4;      % 最大多项式阶数
 ModelOpts.qnorm    = 1;       % q-norm
-ModelOpts.num_vars = 20;       % 输入维度
-ModelOpts.ReductionMethod = 'pls';
-ModelOpts.red_dim  = 18;
+ModelOpts.num_vars = 10;       % 输入维度
+ModelOpts.ReductionMethod = 'kpca';
+ModelOpts.red_dim  = 8;
+ModelOpts.kernel = Kernel( ...
+    'type', 'gaussian', ...
+    'gamma', 1/128^2 ...
+);
 ModelOpts.aPC_Method = '2012';      % 可选 '2012' | '2018'
 ModelOpts.RegressionMethod = 'LARS';
 
@@ -30,31 +34,31 @@ uqlab
 % InputOpts.Marginals(3).Type       = 'Gaussian';
 % InputOpts.Marginals(3).Parameters = [3 0.1];
 
-% InputOpts.Marginals(1).Type = 'Uniform';
-% InputOpts.Marginals(1).Parameters = [150 200];
-% InputOpts.Marginals(2).Type = 'Uniform';
-% InputOpts.Marginals(2).Parameters = [220 300];
-% InputOpts.Marginals(3).Type = 'Uniform';
-% InputOpts.Marginals(3).Parameters = [6 10];
-% InputOpts.Marginals(4).Type = 'Uniform';
-% InputOpts.Marginals(4).Parameters = [-10 10];
-% InputOpts.Marginals(5).Type = 'Uniform';
-% InputOpts.Marginals(5).Parameters = [16 45];
-% InputOpts.Marginals(6).Type = 'Uniform';
-% InputOpts.Marginals(6).Parameters = [0.5 1];
-% InputOpts.Marginals(7).Type = 'Uniform';
-% InputOpts.Marginals(7).Parameters = [0.08 0.18];
-% InputOpts.Marginals(8).Type = 'Uniform';
-% InputOpts.Marginals(8).Parameters = [2.5 6];
-% InputOpts.Marginals(9).Type = 'Uniform';
-% InputOpts.Marginals(9).Parameters = [1700 2500];
-% InputOpts.Marginals(10).Type = 'Uniform';
-% InputOpts.Marginals(10).Parameters = [0.025 0.08];
+InputOpts.Marginals(1).Type = 'Uniform';
+InputOpts.Marginals(1).Parameters = [150 200];
+InputOpts.Marginals(2).Type = 'Uniform';
+InputOpts.Marginals(2).Parameters = [220 300];
+InputOpts.Marginals(3).Type = 'Uniform';
+InputOpts.Marginals(3).Parameters = [6 10];
+InputOpts.Marginals(4).Type = 'Uniform';
+InputOpts.Marginals(4).Parameters = [-10 10];
+InputOpts.Marginals(5).Type = 'Uniform';
+InputOpts.Marginals(5).Parameters = [16 45];
+InputOpts.Marginals(6).Type = 'Uniform';
+InputOpts.Marginals(6).Parameters = [0.5 1];
+InputOpts.Marginals(7).Type = 'Uniform';
+InputOpts.Marginals(7).Parameters = [0.08 0.18];
+InputOpts.Marginals(8).Type = 'Uniform';
+InputOpts.Marginals(8).Parameters = [2.5 6];
+InputOpts.Marginals(9).Type = 'Uniform';
+InputOpts.Marginals(9).Parameters = [1700 2500];
+InputOpts.Marginals(10).Type = 'Uniform';
+InputOpts.Marginals(10).Parameters = [0.025 0.08];
 
-for k = 1:20
-    InputOpts.Marginals(k).Type = 'Uniform';
-    InputOpts.Marginals(k).Parameters = [0 1];
-end
+% for k = 1:20
+%     InputOpts.Marginals(k).Type = 'Uniform';
+%     InputOpts.Marginals(k).Parameters = [0 1];
+% end
 
 % for ii = 1:100
 %     InputOpts.Marginals(ii).Type = 'Uniform';
@@ -69,17 +73,17 @@ myInput = uq_createInput(InputOpts);
 
 data = struct();
 data.X_train = uq_getSample(myInput, 4000);
-data.Y_train = morris10(data.X_train);
+data.Y_train = wingweight(data.X_train);
 
 data.X_val   = uq_getSample(myInput, 2000);
-data.Y_val   = morris10(data.X_val);
+data.Y_val   = wingweight(data.X_val);
 
 %% 
 MetaOpts_OLS.Type = 'MetaModel';
 MetaOpts_OLS.MetaType = 'PCE';
 MetaOpts_OLS.Method = 'LARS';
 MetaOpts_OLS.TruncOptions.qNorm = 1;
-MetaOpts_OLS.Degree = 3;
+MetaOpts_OLS.Degree = 4;
 MetaOpts_OLS.ExpDesign.X = data.X_train;
 MetaOpts_OLS.ExpDesign.Y = data.Y_train;
 MetaOpts_OLS.Display = 0;

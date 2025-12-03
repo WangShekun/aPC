@@ -5,9 +5,45 @@
 
 ## **v1.1.0**
 
-* Added LOO-based automatic selection of polynomial order.
-* Added LOO-based automatic q-norm truncation.
-* Added LOO-based automatic selection of reduced dimensionality (PLS/PCA).
+1. **Added automatic model-structure selection based on LOO error**, covering
+   polynomial order, q-norm truncation, and reduced dimensionality.
+
+2. **Added an option to switch between LARS entering-order basis selection and the traditional nonzero-index basis set**, with consistent handling of the constant term.
+
+3. **Added nonlinear dimensionality reduction via KPCA**,
+   expanding the available reduction methods beyond PLS and PCA.
+
+4. **Unified the dimensionality-reduction workflow**,
+   introducing a consistent two-stage process across all methods:
+
+   * a second standardization is applied after reduction,
+   * and this transformation is embedded into `ReduceModel.transform` to ensure that prediction follows exactly the same mapping as training.
+
+5. **Improved training progress display**,
+   including a dynamic, single-line progress bar with real-time parameter updates.
+
+
+### **KPCA Input Specification**
+
+When `ModelOpts.ReductionMethod = 'kpca'` is used, KPCA requires only two inputs:
+
+1. **`ModelOpts.red_dim`** — dimensionality to retain
+
+2. **`ModelOpts.kernel`** — kernel object defining the nonlinear mapping.
+   The kernel must be constructed using the `Kernel` class, and the following types and parameters are supported:
+
+   * **Linear:**
+     `Kernel('type','linear')`
+   * **Polynomial** (parameters: `degree`, `gamma`, `offset`):
+     `Kernel('type','polynomial','degree',d,'gamma',g,'offset',c)`
+   * **Gaussian** (parameter: `gamma`):
+     `Kernel('type','gaussian','gamma',g)`
+   * **Sigmoid** (parameters: `gamma`, `offset`):
+     `Kernel('type','sigmoid','gamma',g,'offset',c)`
+   * **Laplacian** (parameter: `gamma`):
+     `Kernel('type','laplacian','gamma',g)`
+
+This completes all required user inputs for KPCA.
 
 ---
 

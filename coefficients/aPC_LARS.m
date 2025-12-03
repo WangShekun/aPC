@@ -25,6 +25,7 @@ hybrid_loo = 1;
 no_selection = 0;
 generalized_ls = 0;
 DisplayLevel = 0;
+use_lars_order = 0;
 
 %% OLS options
 olsoptions.modified_loo = modified_loo;
@@ -262,13 +263,33 @@ end
 % Now we assign the coefficients, either through an extra hybrid_lars
 % iteration, or by rescaling of the (non-hybrid) LARS solution.
 coefficients = zeros(P, 1);
+
+% ----------------------------------------------------
+% NEW: choose basis set by option
+%   - use_lars_order = 1 → 使用 LARS 顺序 a_coeff(1:k)
+%   - use_lars_order = 0 → 使用原始 nz_idx 行为
+% ----------------------------------------------------
+if use_lars_order
+    % ---- 使用 LARS 排序 ----
+    if bool_const_and_center
+        % 有中心化 ⇒ 需要手动加常数项
+        active = [constindices(1), a_coeff(1:(k - 1))];
+    else
+        % 无中心化 ⇒ Psi 中已经包含常数项，不需要再加
+        active = a_coeff(1:(k - 1));
+    end
+else
+    % ---- 使用原来 nz_idx 行为 ----
+    active = find(nz_idx);
+end
+
 if hybrid_lars
-    ols_results = aPC_OLS(Psi(:, nz_idx), Y); % Do not use the covariance option, as Y and Psi are already decorrelated
-    coefficients(nz_idx) = ols_results.coefficients;
+    ols_results = aPC_OLS(Psi(:, active), Y); % Do not use the covariance option, as Y and Psi are already decorrelated
+    coefficients(active) = ols_results.coefficients;
     results.LOO = ols_results.LOO;
     results.normEmpErr = ols_results.normEmpErr;
 else
-    coefficients(nz_idx) = coeff_array(k, nz_idx);
+    coefficients(active) = coeff_array(k, active);
     if normalize_columns
         coefficients(nznorm_indices) = coefficients(nznorm_indices) ./ normPsi(nznorm_indices)';
     end
@@ -277,6 +298,22 @@ else
     end
     [results.LOO, results.normEmpErr, results.optErrorParams] = aPC_PCE_loo_error(Psi(:, nz_idx), pinv(Psi(:, nz_idx)' * Psi(:, nz_idx)), Y, coefficients(nz_idx), 1);
 end
+
+% if hybrid_lars
+%     ols_results = aPC_OLS(Psi(:, nz_idx), Y); % Do not use the covariance option, as Y and Psi are already decorrelated
+%     coefficients(nz_idx) = ols_results.coefficients;
+%     results.LOO = ols_results.LOO;
+%     results.normEmpErr = ols_results.normEmpErr;
+% else
+%     coefficients(nz_idx) = coeff_array(k, nz_idx);
+%     if normalize_columns
+%         coefficients(nznorm_indices) = coefficients(nznorm_indices) ./ normPsi(nznorm_indices)';
+%     end
+%     if bool_const_and_center
+%         coefficients(constindices(1)) = mean(Y - Psi * coefficients) / constval(1);
+%     end
+%     [results.LOO, results.normEmpErr, results.optErrorParams] = aPC_PCE_loo_error(Psi(:, nz_idx), pinv(Psi(:, nz_idx)' * Psi(:, nz_idx)), Y, coefficients(nz_idx), 1);
+% end
 
 if DisplayLevel > 1
     fprintf('LAR basis size: %d/%d\n', sum(nz_idx), P);

@@ -34,6 +34,13 @@ q_list    = to_list(ModelOpts.qnorm);
 % 若不设 red_dim（空），视为“不做降维”的唯一候选
 if isempty(rd_list), rd_list = NaN; end
 
+%% ---------- 初始化进度条 ----------
+total = length(rd_list) * length(order_list) * length(q_list);
+cnt = 0;
+bar_len = 40;
+len_prev = 0;
+
+
 %% ---------- 3) 三重（或更少）循环：rd × p × q 以 LOO 选最优 ----------
 best = struct('LOO', Inf);
 ReduceModel = [];
@@ -41,6 +48,28 @@ ReduceModel = [];
 for rd = rd_list
     for p = order_list
         for qn = q_list
+
+%% ---------- 单行进度条（char(13) 强制覆盖法 + 参数显示） ----------
+cnt = cnt + 1;
+pct = cnt / total;
+
+bar_len = 40;
+filled = round(pct * bar_len);
+bar_str = [repmat('#',1,filled), repmat('-',1,bar_len-filled)];
+
+% 处理降维显示（NaN 代表不降维）
+if isnan(rd)
+    rd_str = '-';
+else
+    rd_str = num2str(rd);
+end
+
+% 构建整行信息（注意保持格式长度可控）
+line = sprintf('[aPC_Train] Progress: [%s] %3d%% | rd=%s | p=%d | q=%g', ...
+               bar_str, round(pct*100), rd_str, p, qn);
+
+% 打印并覆盖上一行
+fprintf('%s', [char(13) line]);
 
             % --- 临时选项 ---
             Mo = ModelOpts;
@@ -83,6 +112,9 @@ for rd = rd_list
     end
 end
 
+
+%% ---------- 清理滚动条、换行 ----------
+fprintf('\n');
 %% ---------- 4) 写回最优模型 ----------
 results                 = best.results;
 ModelOpts               = best.ModelOpts;
@@ -108,30 +140,30 @@ end
 
 %% ============ 辅助：若字段不存在给默认 ============
 function v = getfield_or_default(S, fname, default)
-    if isstruct(S) && isfield(S, fname) && ~isempty(S.(fname))
-        v = S.(fname);
-    else
-        v = default;
-    end
+if isstruct(S) && isfield(S, fname) && ~isempty(S.(fname))
+    v = S.(fname);
+else
+    v = default;
+end
 end
 
 %% ============ 辅助：将标量/向量/空 转成行向量列表 ============
 function L = to_list(x)
-    if isempty(x)
-        L = [];
-    elseif isscalar(x)
-        L = x;
-    else
-        L = x(:).';
-    end
+if isempty(x)
+    L = [];
+elseif isscalar(x)
+    L = x;
+else
+    L = x(:).';
+end
 end
 
 %% ============ 辅助：三目 ============
 function o = ifelse(cond, a, b)
-    if cond, o = a; else, o = b; end
+if cond, o = a; else, o = b; end
 end
 
 %% ============ 辅助：NaN 打印为 '-' ============
 function s = nan2dash(x)
-    if isnan(x), s = '-'; else, s = num2str(x); end
+if isnan(x), s = '-'; else, s = num2str(x); end
 end
