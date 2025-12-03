@@ -23,7 +23,7 @@ if ~isfield(ModelOpts, 'qnorm') || isempty(ModelOpts.qnorm)
 end
 
 %% ---------- 1) 标准化（外部物理空间 → U） ----------
-[data, ~, mu, sigma] = aPC_PCE_map_to_U(data.X_train, data);
+[data, map_U] = aPC_PCE_map_to_U(data.X_train, data);
 % 之后所有候选组合均在同一份“标准化后的 data（含U）”上试探
 
 %% ---------- 2) 构造候选集合（标量→单点；向量→网格搜索） ----------
@@ -125,8 +125,7 @@ results.univ_vals       = best.univ;
 results.Indices         = ModelOpts.Indices;
 
 % 标准化参数（外层映射用）
-results.mu              = mu;
-results.sigma           = sigma;
+results.map_U = map_U;
 
 % 统计信息
 results.N_train         = size(data.X_train,1);

@@ -2,12 +2,7 @@ function y_pred = aPC_Predict(X_new, results, ModelOpts, ReduceModel)
 % aPC_Predict：支持任意降维方法（PLS, PCA, ICA…）
 
     % ====== 1) 标准化，使用训练时的 mu & sigma ======
-    mu = results.mu(:).';
-    sigma = results.sigma(:).';
-    sigma_safe = sigma;
-    sigma_safe(sigma_safe == 0) = 1;
-
-    U_new = (X_new - mu) ./ sigma_safe;   % 映射到 U 空间
+    U_new = results.map_U.transform(X_new);
 
     % ====== 2) 降维（统一接口） ======
     if ~isempty(ReduceModel)

@@ -1,34 +1,28 @@
-function [data, nonConstIdx, mu, sigma] = aPC_PCE_map_to_U(X, data)
-% aPC_PCE_map_to_U
-% 将原始样本按训练集统计量映射到中心化 + 标准化空间：
-%
-%   U(:,j) = (samples(:,j) - mu(j)) / sigma(j)
-%
-% 输入：
-%   samples   - N × M 的样本矩阵
-%
-% 输出：
-%   U           - 标准化后的样本
-%   nonConstIdx - 有效列（排除方差为零的列）
-%   mu, sigma   - 每个变量的均值与标准差
+function [data, map_U] = aPC_PCE_map_to_U(X, data)
+% 标准化映射，返回 transform 函数句柄形式的 map_U
 
-    % [N, M] = size(samples); %#ok<NASGU>
+    % ---- 1. 计算均值、标准差 ----
+    [Z, mu, sigma] = zscore(X);
 
-    % mu    = mean(samples, 1);
-    % sigma = std(samples, 0, 1);
-    % 
-    % sigma_safe = sigma;
-    % sigma_safe(sigma_safe == 0) = 1;
-    % 
-    % U = (samples - mu) ./ sigma_safe;
-    
-    [U, mu, sigma] = zscore(X);
-
+    % ---- 2. 去除零方差维度 ----
     nonConstIdx = sigma > 0;
 
-    U     = U(:, nonConstIdx);
+    Z     = Z(:, nonConstIdx);
     mu    = mu(nonConstIdx);
     sigma = sigma(nonConstIdx);
-    
-    data.U = U;
+
+    % ---- 3. 保存到 data ----
+    data.U = Z;
+
+    % ---- 4. 构造 transform 函数句柄 ----
+    % 注意：由于维度筛选，必须先映射，再筛选
+    map_U.transform = @(Xnew) ((Xnew - mu) ./ sigma);
+
+    % 若需要反标准化，可用 untransform
+    map_U.untransform = @(Unew) (Unew .* sigma + mu);
+
+    % ---- 5. 附加信息，用于调试或记录 ----
+    map_U.mu          = mu;
+    map_U.sigma       = sigma;
+    map_U.nonConstIdx = nonConstIdx;
 end
