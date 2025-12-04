@@ -1,168 +1,261 @@
 function [results, ModelOpts, data, ReduceModel] = aPC_Train(data, ModelOpts)
-% aPC_Train
 % ------------------------------------------------------------
-% 标准化 →（可选：内部降维）→ 生成多索引(取决于 Order,qnorm)
-% → 构造Ψ → 回归（由 RegressionMethod 决定）→ 以 LOO 选最优组合
+% 标准化 →（可选降维）→ 多索引生成 → 构造 Ψ → 回归 → LOO 选最优
 %
-% 兼容：
-%   - ModelOpts.red_dim  可以是标量或向量（或缺省）
-%   - ModelOpts.Order    可以是标量或向量
-%   - ModelOpts.qnorm    可以是标量或向量
-%
-% 选择准则：以 aPC_RegressionMethods 返回的 results.LOO 最小者为最优
-% 降维内部采用 aPC_dimReduction（不关心具体方法：PLS/PCA/… 皆在其内）
+% 支持自动搜索超参数（Order/qnorm/red_dim/kernel_* …）
+% 搜索网格由 aPC_build_search_grid.m 自动生成
 % ------------------------------------------------------------
 
-%% ---------- 0) 默认设置 ----------
+%% ---------- 默认设置 ----------
 if ~isfield(ModelOpts, 'RegressionMethod') || isempty(ModelOpts.RegressionMethod)
-    ModelOpts.RegressionMethod = 'LARS';  % 'LARS' | 'OLS' | 'Ridge' | 'Lasso'
+    ModelOpts.RegressionMethod = 'LARS';
 end
-
 if ~isfield(ModelOpts, 'qnorm') || isempty(ModelOpts.qnorm)
     ModelOpts.qnorm = 1;
 end
 
-%% ---------- 1) 标准化（外部物理空间 → U） ----------
+%% ---------- 标准化 ----------
 [data, map_U] = aPC_PCE_map_to_U(data.X_train, data);
-% 之后所有候选组合均在同一份“标准化后的 data（含U）”上试探
 
-%% ---------- 2) 构造候选集合（标量→单点；向量→网格搜索） ----------
-rd_list   = to_list(getfield_or_default(ModelOpts, 'red_dim', []));  %#ok<GFLD>
-order_list= to_list(ModelOpts.Order);
-q_list    = to_list(ModelOpts.qnorm);
+%% ---------- 构造搜索网格 ----------
+grid = aPC_build_search_grid(ModelOpts);
+total = numel(grid);
 
-% 若不设 red_dim（空），视为“不做降维”的唯一候选
-if isempty(rd_list), rd_list = NaN; end
+if ~ModelOpts.Parallel
+    %% ---------- 初始化进度条 ----------
+    cnt = 0;
+    bar_len = 40;
+    fprintf('[aPC_Train] (Serial) Starting search over %d configurations...\n', total);
 
-%% ---------- 初始化进度条 ----------
-total = length(rd_list) * length(order_list) * length(q_list);
-cnt = 0;
-bar_len = 40;
-len_prev = 0;
+    best = struct('LOO', Inf);
+    ReduceModel = [];
+
+    for gi = 1:total
+
+        cnt = cnt + 1;
+        pct = cnt / total;
+
+        % ---------- 进度条 ----------
+        filled = round(pct * bar_len);
+        bar_str = [repmat('#',1,filled), repmat('-',1,bar_len-filled)];
+
+        % 当前候选参数（原始版本）
+        Mo = grid(gi);
+
+        % 打印降维信息
+        if isfield(Mo,'red_dim') && ~isempty(Mo.red_dim)
+            rd_str = num2str(Mo.red_dim);
+        else
+            rd_str = '-';
+        end
+
+        %% ---- 打印进度条信息 ----
+        % 降维方法名（没有就显示 none）
+        if isfield(Mo,'ReductionMethod') && ~isempty(Mo.ReductionMethod)
+            redm = upper(Mo.ReductionMethod);
+        else
+            redm = 'NONE';
+        end
+        
+        % KPCA 才显示 kernel 参数
+        if isfield(Mo,'ReductionMethod') && strcmpi(Mo.ReductionMethod,'kpca')
+            extra_str = [' | KPCA(' aPC_format_kernel_str(Mo) ')'];
+        else
+            extra_str = '';
+        end
+        
+        fprintf('\r[aPC_Train] [%s] %3d%% \n| RD=%s | rd=%s | p=%d | q=%g%s |', ...
+            bar_str, round(pct*100), redm, rd_str, Mo.Order, Mo.qnorm, extra_str);
 
 
-%% ---------- 3) 三重（或更少）循环：rd × p × q 以 LOO 选最优 ----------
-best = struct('LOO', Inf);
-ReduceModel = [];
-
-for rd = rd_list
-    for p = order_list
-        for qn = q_list
-
-%% ---------- 单行进度条（char(13) 强制覆盖法 + 参数显示） ----------
-cnt = cnt + 1;
-pct = cnt / total;
-
-bar_len = 40;
-filled = round(pct * bar_len);
-bar_str = [repmat('#',1,filled), repmat('-',1,bar_len-filled)];
-
-% 处理降维显示（NaN 代表不降维）
-if isnan(rd)
-    rd_str = '-';
-else
-    rd_str = num2str(rd);
-end
-
-% 构建整行信息（注意保持格式长度可控）
-line = sprintf('[aPC_Train] Progress: [%s] %3d%% | rd=%s | p=%d | q=%g', ...
-               bar_str, round(pct*100), rd_str, p, qn);
-
-% 打印并覆盖上一行
-fprintf('%s', [char(13) line]);
-
-            % --- 临时选项 ---
-            Mo = ModelOpts;
-            Mo.Order = p;
-            Mo.qnorm = qn;
-
-            % --- 降维：若 rd 为数值（且非NaN）则启用；否则跳过 ---
-            if ~isnan(rd)
-                Mo.red_dim = rd;
-                [data_tmp, Mo, Red_tmp] = aPC_dimReduction(data, Mo);
-            else
-                data_tmp = data;
-                Red_tmp  = [];
-                % 对于“无降维”的场景，确保 num_vars 至少与当前输入维度一致
-                if ~isfield(Mo,'num_vars') || isempty(Mo.num_vars)
-                    if isfield(data_tmp,'U'), Mo.num_vars = size(data_tmp.U,2); end
-                end
-            end
-
-            % --- 生成多索引（依赖 p 与 qn，并隐式依赖 Mo.num_vars）---
-            Mo.Indices = aPC_GenerateTerms(Mo);
-
-            % --- 构造 Ψ（在 data_tmp 上，内部会取 U 或降维后的变量）---
-            [Psi_tmp, poly_tmp, univ_tmp] = aPC_PCE_build_Psi(Mo, data_tmp);
-
-            % --- 回归，取 LOO 作为选择准则 ---
-            res_tmp = aPC_RegressionMethods(Psi_tmp, data_tmp.Y_train, Mo.RegressionMethod);
-
-            % --- 更新最优 ---
-            if res_tmp.LOO < best.LOO
-                best.LOO        = res_tmp.LOO;
-                best.results    = res_tmp;
-                best.ModelOpts  = Mo;
-                best.poly       = poly_tmp;
-                best.univ       = univ_tmp;
-                best.ReduceModel= Red_tmp;
-                best.choice     = struct('red_dim', rd, 'Order', p, 'qnorm', qn);
+        %% ---------- 降维 ----------
+        if isfield(Mo,'red_dim') && ~isempty(Mo.red_dim)
+            [data_tmp, Mo_tmp, Red_tmp] = aPC_dimReduction(data, Mo);
+        else
+            data_tmp = data;
+            Mo_tmp = Mo;
+            Red_tmp = [];
+            if ~isfield(Mo_tmp,'num_vars') || isempty(Mo_tmp.num_vars)
+                Mo_tmp.num_vars = size(data_tmp.U,2);
             end
         end
+
+        % ---------- 多索引 ----------
+        Mo_tmp.Indices = aPC_GenerateTerms(Mo_tmp);
+
+        % ---------- 构造多维基函数 ----------
+        [Psi_tmp, poly_tmp, univ_tmp] = aPC_PCE_build_Psi(Mo_tmp, data_tmp);
+
+        % ---------- 回归 ----------
+        res_tmp = aPC_RegressionMethods(Psi_tmp, data_tmp.Y_train, Mo_tmp.RegressionMethod);
+
+        % ---------- 更新最优 ----------
+        if res_tmp.LOO < best.LOO
+            best.LOO        = res_tmp.LOO;
+            best.results    = res_tmp;
+            best.ModelOpts  = Mo_tmp;
+            best.poly       = poly_tmp;
+            best.univ       = univ_tmp;
+            best.ReduceModel= Red_tmp;
+            best.choice     = Mo;
+        end
+
+        % aPC_print(res_tmp, Mo_tmp, Mo_tmp.Indices);
+    end
+
+    fprintf('\n'); % 清理进度条
+
+    %% ---------- 写回最终结果 ----------
+    results             = best.results;
+    ModelOpts           = best.ModelOpts;
+    ReduceModel         = best.ReduceModel;
+
+    results.poly_coeffs = best.poly;
+    results.univ_vals   = best.univ;
+    results.Indices     = ModelOpts.Indices;
+    results.map_U       = map_U;   % 标准化映射
+
+    results.N_train     = size(data.X_train,1);
+    if isfield(data,"X_val")
+        results.N_test  = size(data.X_val,1);
+    else
+        results.N_test  = [];
+    end
+
+    %% --------- 打印最佳模型 ---------
+    mo = ModelOpts;
+    
+    % --- 降维方法名 ---
+    if isfield(mo,'ReductionMethod') && ~isempty(mo.ReductionMethod)
+        redm = upper(mo.ReductionMethod);
+    else
+        redm = 'NONE';
+    end
+    
+    % --- 降维维度 ---
+    if isfield(mo,'red_dim') && ~isempty(mo.red_dim)
+        rd_str = num2str(mo.red_dim);
+    else
+        rd_str = 'none';
+    end
+    
+    % --- kernel 信息（仅 KPCA） ---
+    if strcmpi(redm,'KPCA')
+        extra_str = [' | KPCA(' aPC_format_kernel_str(mo) ')'];
+    else
+        extra_str = '';
+    end
+    
+    fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
+            redm, rd_str, mo.Order, mo.qnorm, extra_str, results.LOO);
+
+    return;  % 串行版本结束
+end
+
+%% ============================================================
+%                   并行版本（parallel = true）
+% ============================================================
+fprintf('[aPC_Train] (Parallel) Starting search over %d configurations...\n', total);
+
+% —— 单行进度条 ——
+dq = parallel.pool.DataQueue;
+cnt = 0; bar_len = 40;
+afterEach(dq, @updateBar);
+
+    function updateBar(~)
+        cnt = cnt + 1;
+        pct = cnt / total;
+        filled  = round(pct * bar_len);
+        bar_str = [repmat('#',1,filled), repmat('-',1,bar_len-filled)];
+        fprintf('\r[aPC_Train] [%s] %3d%%  (%d/%d)', ...
+            bar_str, round(pct*100), cnt, total);
+    end
+
+% —— 开并行池 ——
+if isempty(gcp('nocreate')), parpool; end
+
+% —— 并行评估 -------
+outs(total) = struct('LOO',Inf);
+
+parfor gi = 1:total
+    outs(gi) = aPC_evaluateCandidate_LOO(data, grid(gi));
+    send(dq, gi);
+end
+
+fprintf('\n');
+
+% —— 最优组合 ——
+[~, best_idx] = min([outs.LOO]);
+best_choice   = grid(best_idx);
+
+% —— 串行重训（完整版本） ——
+Mo = best_choice;
+
+if isfield(Mo,'red_dim') && ~isempty(Mo.red_dim)
+    [data_tmp, Mo_tmp, Red_tmp] = aPC_dimReduction(data, Mo);
+else
+    data_tmp = data; Mo_tmp = Mo; Red_tmp = [];
+    if ~isfield(Mo_tmp,'num_vars') || isempty(Mo_tmp.num_vars)
+        Mo_tmp.num_vars = size(data_tmp.U,2);
     end
 end
 
+Mo_tmp.Indices = aPC_GenerateTerms(Mo_tmp);
+[Psi, poly_coeffs, univ_vals] = aPC_PCE_build_Psi(Mo_tmp, data_tmp);
+res = aPC_RegressionMethods(Psi, data_tmp.Y_train, Mo_tmp.RegressionMethod);
 
-%% ---------- 清理滚动条、换行 ----------
-fprintf('\n');
-%% ---------- 4) 写回最优模型 ----------
-results                 = best.results;
-ModelOpts               = best.ModelOpts;
-ReduceModel             = best.ReduceModel;
-
-results.poly_coeffs     = best.poly;
-results.univ_vals       = best.univ;
+% —— 写回最终结果 ——
+results                 = res;
+ModelOpts               = Mo_tmp;
+ReduceModel             = Red_tmp;
+results.poly_coeffs     = poly_coeffs;
+results.univ_vals       = univ_vals;
 results.Indices         = ModelOpts.Indices;
+results.map_U           = map_U;
 
-% 标准化参数（外层映射用）
-results.map_U = map_U;
-
-% 统计信息
 results.N_train         = size(data.X_train,1);
-results.N_test          = ifelse(isfield(data,"X_val"), size(data.X_val,1), []);
 
-% 可选：打印最终选择
-fprintf('[aPC_Train] Best combo: red_dim=%s, Order=%d, qnorm=%g | LOO=%.4e\n', ...
-    nan2dash(best.choice.red_dim), best.choice.Order, best.choice.qnorm, best.LOO);
-
+if isfield(data,"X_val")
+    results.N_test = size(data.X_val,1);
+else 
+    results.N_test = [];
 end
 
-%% ============ 辅助：若字段不存在给默认 ============
-function v = getfield_or_default(S, fname, default)
-if isstruct(S) && isfield(S, fname) && ~isempty(S.(fname))
-    v = S.(fname);
+% —— 格式化 red_dim 与 kernel ——
+if isfield(best_choice,'red_dim') && ~isempty(best_choice.red_dim)
+    rd_str = num2str(best_choice.red_dim);
 else
-    v = default;
+    rd_str = '-';
 end
-end
+kernel_str = aPC_format_kernel_str(best_choice);
 
-%% ============ 辅助：将标量/向量/空 转成行向量列表 ============
-function L = to_list(x)
-if isempty(x)
-    L = [];
-elseif isscalar(x)
-    L = x;
+%% --------- 打印最佳模型 ---------
+mo = ModelOpts;
+
+% --- 降维方法名 ---
+if isfield(mo,'ReductionMethod') && ~isempty(mo.ReductionMethod)
+    redm = upper(mo.ReductionMethod);
 else
-    L = x(:).';
-end
-end
-
-%% ============ 辅助：三目 ============
-function o = ifelse(cond, a, b)
-if cond, o = a; else, o = b; end
+    redm = 'NONE';
 end
 
-%% ============ 辅助：NaN 打印为 '-' ============
-function s = nan2dash(x)
-if isnan(x), s = '-'; else, s = num2str(x); end
+% --- 降维维度 ---
+if isfield(mo,'red_dim') && ~isempty(mo.red_dim)
+    rd_str = num2str(mo.red_dim);
+else
+    rd_str = 'none';
+end
+
+% --- kernel 信息（仅 KPCA） ---
+if strcmpi(redm,'KPCA')
+    extra_str = [' | KPCA(' aPC_format_kernel_str(mo) ')'];
+else
+    extra_str = '';
+end
+
+fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
+        redm, rd_str, mo.Order, mo.qnorm, extra_str, results.LOO);
+
+
+
 end

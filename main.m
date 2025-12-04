@@ -11,19 +11,21 @@ addpath(genpath('sensitivity'));
 addpath(genpath('dimreduct'));
 addpath(genpath('benchmark'));
 addpath(genpath('apc_train'));
+addpath(genpath('auto_search'));
 
 ModelOpts = struct();
-ModelOpts.Order    = 3;      % 最大多项式阶数
-ModelOpts.qnorm    = 1;       % q-norm
-ModelOpts.num_vars = 20;       % 输入维度
-ModelOpts.ReductionMethod = 'kpca';
-ModelOpts.red_dim  = 18;
-ModelOpts.kernel = Kernel( ...
-    'type', 'gaussian', ...
-    'gamma', 1/128^2 ...
-);
+ModelOpts.Order    = [2:3];      % 最大多项式阶数
+ModelOpts.qnorm    = [0.8 0.9 1];       % q-norm
+ModelOpts.num_vars = 3;       % 输入维度
+ModelOpts.ReductionMethod = 'pls';
+ModelOpts.red_dim  = [16:18];
+% ModelOpts.kernel_type   = {'polynomial'};
+% ModelOpts.kernel_gamma  = [1];
+% ModelOpts.kernel_degree = [1];
+% ModelOpts.kernel_offset = [0];
 ModelOpts.aPC_Method = '2012';      % 可选 '2012' | '2018'
 ModelOpts.RegressionMethod = 'LARS';
+ModelOpts.Parallel = 0;
 
 uqlab
 

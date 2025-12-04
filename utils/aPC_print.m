@@ -49,6 +49,22 @@ if any(modules == "basic")
         fprintf('%-28s : %d\n', 'Active terms', nnz(results.coefficients));
     end
 
+    %% ----- 降维信息打印（若存在） -----
+    if isfield(InputOpts,'ReductionMethod') && ~isempty(InputOpts.ReductionMethod)
+        fprintf('%-28s : %s\n', 'Dimension reduction', upper(InputOpts.ReductionMethod));
+
+        if isfield(InputOpts,'red_dim') && ~isempty(InputOpts.red_dim)
+            fprintf('%-28s : %d\n', 'Reduced dimension', InputOpts.red_dim);
+        end
+
+        % ---- KPCA 专属 kernel 信息 ----
+        if strcmpi(InputOpts.ReductionMethod,'kpca')
+            kernel_str = aPC_format_kernel_str(InputOpts);
+            fprintf('%-28s : %s\n', 'KPCA kernel', kernel_str);
+        end
+    end
+
+
     fprintf('%s\n', line);
 end
 
