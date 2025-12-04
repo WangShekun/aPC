@@ -22,6 +22,7 @@ grid = aPC_build_search_grid(ModelOpts);
 total = numel(grid);
 
 if ~ModelOpts.Parallel
+
     %% ---------- 初始化进度条 ----------
     cnt = 0;
     bar_len = 40;
@@ -41,7 +42,8 @@ if ~ModelOpts.Parallel
 
         % 当前候选参数（原始版本）
         Mo = grid(gi);
-
+        
+        %% ---- 打印进度条信息 ----
         % 打印降维信息
         if isfield(Mo,'red_dim') && ~isempty(Mo.red_dim)
             rd_str = num2str(Mo.red_dim);
@@ -49,7 +51,6 @@ if ~ModelOpts.Parallel
             rd_str = '-';
         end
 
-        %% ---- 打印进度条信息 ----
         % 降维方法名（没有就显示 none）
         if isfield(Mo,'ReductionMethod') && ~isempty(Mo.ReductionMethod)
             redm = upper(Mo.ReductionMethod);
@@ -80,7 +81,7 @@ if ~ModelOpts.Parallel
             end
         end
 
-        % ---------- 多索引 ----------
+        % ---------- 构建基函数索引 ----------
         Mo_tmp.Indices = aPC_GenerateTerms(Mo_tmp);
 
         % ---------- 构造多维基函数 ----------
@@ -103,7 +104,7 @@ if ~ModelOpts.Parallel
         % aPC_print(res_tmp, Mo_tmp, Mo_tmp.Indices);
     end
 
-    fprintf('\n'); % 清理进度条
+    fprintf('\n');
 
     %% ---------- 写回最终结果 ----------
     results             = best.results;
@@ -174,7 +175,7 @@ afterEach(dq, @updateBar);
 % —— 开并行池 ——
 if isempty(gcp('nocreate')), parpool; end
 
-% —— 并行评估 -------
+%% —— 并行评估 -------
 outs(total) = struct('LOO',Inf);
 
 parfor gi = 1:total
@@ -188,7 +189,7 @@ fprintf('\n');
 [~, best_idx] = min([outs.LOO]);
 best_choice   = grid(best_idx);
 
-% —— 串行重训（完整版本） ——
+%% —— 串行重训 ——
 Mo = best_choice;
 
 if isfield(Mo,'red_dim') && ~isempty(Mo.red_dim)
@@ -203,8 +204,7 @@ end
 Mo_tmp.Indices = aPC_GenerateTerms(Mo_tmp);
 [Psi, poly_coeffs, univ_vals] = aPC_PCE_build_Psi(Mo_tmp, data_tmp);
 res = aPC_RegressionMethods(Psi, data_tmp.Y_train, Mo_tmp.RegressionMethod);
-
-% —— 写回最终结果 ——
+%% —— 写回最终结果 ——
 results                 = res;
 ModelOpts               = Mo_tmp;
 ReduceModel             = Red_tmp;
@@ -220,15 +220,6 @@ if isfield(data,"X_val")
 else 
     results.N_test = [];
 end
-
-% —— 格式化 red_dim 与 kernel ——
-if isfield(best_choice,'red_dim') && ~isempty(best_choice.red_dim)
-    rd_str = num2str(best_choice.red_dim);
-else
-    rd_str = '-';
-end
-kernel_str = aPC_format_kernel_str(best_choice);
-
 %% --------- 打印最佳模型 ---------
 mo = ModelOpts;
 
@@ -255,7 +246,4 @@ end
 
 fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
         redm, rd_str, mo.Order, mo.qnorm, extra_str, results.LOO);
-
-
-
 end
