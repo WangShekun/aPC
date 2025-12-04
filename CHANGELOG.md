@@ -22,6 +22,12 @@
 5. **Improved training progress display**,
    including a dynamic, single-line progress bar with real-time parameter updates.
 
+6. **Improved code modularity for future hyperparameter auto-search**,
+   allowing new tunable fields (e.g., kernel parameters or additional reduction settings) to be integrated cleanly without modifying the core training logic.
+
+7. **Added support for parallel hyperparameter search**,
+   enabling multi-core evaluation of all candidate configurations to significantly reduce total training time.
+
 
 ### **KPCA Input Specification**
 
