@@ -1,84 +1,63 @@
 clear; clc; close all;
-rng(70);
+rng(100);
 
-addpath(genpath('basis'));
-addpath(genpath('coefficients'));
-addpath(genpath('display'));
-addpath(genpath('utils'));
-addpath(genpath('predict'));
-addpath(genpath('UQ'));
-addpath(genpath('sensitivity'));
-addpath(genpath('dimreduct'));
-addpath(genpath('benchmark'));
-addpath(genpath('apc_train'));
-addpath(genpath('auto_search'));
+aPC
 
 ModelOpts = struct();
 ModelOpts.Order    = [3];      % 最大多项式阶数
 ModelOpts.qnorm    = [1];       % q-norm
-ModelOpts.num_vars = 20;       % 输入维度
-ModelOpts.ReductionMethod = 'pls';
-ModelOpts.red_dim  = [18];
-% ModelOpts.kernel_type   = {'polynomial'};
+ModelOpts.num_vars = 100;      % 输入维度
+
+ModelOpts.ReductionMethod = 'mpldr';
+ModelOpts.red_dim  = [40];
+
+% ModelOpts.kernel_type   = {'gaussian'};
 % ModelOpts.kernel_gamma  = [0.1];
 % ModelOpts.kernel_degree = [2];
 % ModelOpts.kernel_offset = [1];
-ModelOpts.aPC_Method = '2012';      % 可选 '2012' | '2018'
-ModelOpts.RegressionMethod = 'LARS';
+
+% ModelOpts.label_kernel_type = {'gaussian'};
+% ModelOpts.label_kernel_gamma  = [1/128^2];
+
+ModelOpts.mpldr_opts.maxIter = 3000;
+
+ModelOpts.mpldr_opts.whiten = 1;
+ModelOpts.mpldr_opts.alpha_cov = 1.0;
+
+ModelOpts.mpldr_opts.max_moment_order = [6];
+ModelOpts.mpldr_opts.moment_base = 1.0;
+ModelOpts.mpldr_opts.moment_decay = [0.4];
+
+ModelOpts.mpldr_opts.lambda_y = [0.1];
+ModelOpts.mpldr_opts.supervision_mode = 'pls';
+
+ModelOpts.mpldr_opts.manopt_solver = 'rlbfgs';
+
+ModelOpts.aPC_Method = '2012';      % 可选 '2012' | '2018' | 'stieltjes'
+ModelOpts.RegressionMethod = 'lars';
 ModelOpts.Parallel = 0;
 
 uqlab
 
-% InputOpts.Marginals(1).Type       = 'Gaussian';
-% InputOpts.Marginals(1).Parameters = [3 0.2];
-% InputOpts.Marginals(2).Type       = 'Uniform';
-% InputOpts.Marginals(2).Parameters = [0 2];
-% InputOpts.Marginals(3).Type       = 'Gaussian';
-% InputOpts.Marginals(3).Parameters = [3 0.1];
+% InputOpts = ishigami_Input;
 
-% InputOpts.Marginals(1).Type = 'Uniform';
-% InputOpts.Marginals(1).Parameters = [150 200];
-% InputOpts.Marginals(2).Type = 'Uniform';
-% InputOpts.Marginals(2).Parameters = [220 300];
-% InputOpts.Marginals(3).Type = 'Uniform';
-% InputOpts.Marginals(3).Parameters = [6 10];
-% InputOpts.Marginals(4).Type = 'Uniform';
-% InputOpts.Marginals(4).Parameters = [-10 10];
-% InputOpts.Marginals(5).Type = 'Uniform';
-% InputOpts.Marginals(5).Parameters = [16 45];
-% InputOpts.Marginals(6).Type = 'Uniform';
-% InputOpts.Marginals(6).Parameters = [0.5 1];
-% InputOpts.Marginals(7).Type = 'Uniform';
-% InputOpts.Marginals(7).Parameters = [0.08 0.18];
-% InputOpts.Marginals(8).Type = 'Uniform';
-% InputOpts.Marginals(8).Parameters = [2.5 6];
-% InputOpts.Marginals(9).Type = 'Uniform';
-% InputOpts.Marginals(9).Parameters = [1700 2500];
-% InputOpts.Marginals(10).Type = 'Uniform';
-% InputOpts.Marginals(10).Parameters = [0.025 0.08];
+% InputOpts = wingweight_Input;
 
-for k = 1:20
-    InputOpts.Marginals(k).Type = 'Uniform';
-    InputOpts.Marginals(k).Parameters = [0 1];
-end
+% InputOpts = morris10_Input;
 
-% for ii = 1:100
-%     InputOpts.Marginals(ii).Type = 'Uniform';
-%     if ii == 20
-%         InputOpts.Marginals(ii).Parameters = [1 3];
-%     else
-%         InputOpts.Marginals(ii).Parameters = [1 2];
-%     end
-% end
+InputOpts = dim100_Input;
+% InputOpts = dim150_Input;
+% InputOpts = dim200_Input;
+% InputOpts = dim300_Input;
 
 myInput = uq_createInput(InputOpts);
 
 data = struct();
-data.X_train = uq_getSample(myInput, 4000);
-data.Y_train = morris10(data.X_train);
+data.X_train = uq_getSample(myInput, 1000);
+data.Y_train = dim100(data.X_train);
 
-data.X_val   = uq_getSample(myInput, 2000);
-data.Y_val   = morris10(data.X_val);
+data.X_val   = uq_getSample(myInput, 10000);
+data.Y_val   = dim100(data.X_val);
 
 %% 
 MetaOpts_OLS.Type = 'MetaModel';
@@ -108,7 +87,7 @@ data.Y_pred = aPC_Predict(data.X_val, results, ModelOpts, ReduceModel);
 results.RelMSE = sum((data.Y_pred - data.Y_val).^2) / ...
                  sum((data.Y_val - mean(data.Y_val)).^2);
 
-aPC_print(results, ModelOpts, ModelOpts.Indices);
+aPC_print(results, ModelOpts);
 
 % aPC_plot(data, results, ModelOpts, "all");
 

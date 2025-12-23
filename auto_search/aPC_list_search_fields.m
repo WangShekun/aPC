@@ -6,15 +6,25 @@ function fields = aPC_list_search_fields()
 % -------------------------------------------------------
 
 fields = {
-    'Order'          % polynomial order
+    'Order'          % polynomial chaos order
     'qnorm'          % q-norm truncation
     'red_dim'        % dimensionality reduction target size
 
-    % KPCA kernel hyperparameters
+    % ===== X-KERNEL (for KPCA / SKPCA input kernel) =====
     'kernel_type'
     'kernel_gamma'
     'kernel_degree'
     'kernel_offset'
+
+    % ===== Y-KERNEL (for supervised KPCA / HSIC) =====
+    'label_kernel_type'
+    'label_kernel_gamma'
+    'label_kernel_degree'
+    'label_kernel_offset'
+
+    'mpldr_opts.max_moment_order'
+    'mpldr_opts.moment_decay'
+    'mpldr_opts.lambda_y'
 
     % Future extension:
     % 'ridge_lambda'

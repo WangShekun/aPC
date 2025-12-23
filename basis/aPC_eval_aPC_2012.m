@@ -90,4 +90,6 @@ for k = 1:ORDER
     VALUE(:, k+1)    = phi_k;
     poly_coeffs{k+1} = p_poly_norm.';   % 行向量，便于 polyval
 end
+
+
 end

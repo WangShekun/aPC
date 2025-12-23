@@ -63,8 +63,20 @@ function [data, ModelOpts, ReduceModel] = aPC_dimReduction(data, ModelOpts)
             [X_red, ReduceModel] = aPC_dimReduction_pca(U, ModelOpts.red_dim);
 
         case 'kpca'
-            % 适配外部 OOP KPCA 库（Kernel/KernelPCA）
+            % 适配外部 KPCA 库（Kernel/KernelPCA）
             [X_red, ReduceModel] = aPC_dimReduction_kpca(U, ModelOpts);
+
+        case 'spca_hsic'
+            [X_red, ReduceModel] = aPC_dimReduction_spca_hsic(U, Y, ModelOpts.red_dim);
+
+        case 'skpca_hsic'
+            % KPCA修改得到的SPKCA
+            [X_red, ReduceModel] = aPC_dimReduction_skpca_hsic(U, Y, ModelOpts);
+
+        case 'mpldr'
+            [X_red, ReduceModel] = aPC_dimReduction_mpldr(U, Y, ModelOpts);
+
+
 
         otherwise
             error('Unknown ReductionMethod: %s', ModelOpts.ReductionMethod);
@@ -95,11 +107,11 @@ function [data, ModelOpts, ReduceModel] = aPC_dimReduction(data, ModelOpts)
     ReduceModel.sigma2= sigma2;
 
     % （可选）记录链路信息
-    if ~isfield(ReduceModel, 'info') || isempty(ReduceModel.info)
-        ReduceModel.info = struct();
-    end
-    ReduceModel.info.post_std_mu    = mu2;
-    ReduceModel.info.post_std_sigma = sigma2;
+    % if ~isfield(ReduceModel, 'info') || isempty(ReduceModel.info)
+    %     ReduceModel.info = struct();
+    % end
+    % ReduceModel.info.post_std_mu    = mu2;
+    % ReduceModel.info.post_std_sigma = sigma2;
 end
 
 

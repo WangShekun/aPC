@@ -18,7 +18,7 @@ function aPC_plot(data, results, ModelOpts, varargin)
 %   "all"           - 绘制所有图
 %
 
-all_modules = ["input","pdfcdf","exceedance","diagnostics","orthogonality","coefficients"];
+all_modules = ["input","pdfcdf","exceedance","diagnostics","orthogonality","coefficients","coeff_scatter"];
 default_modules = ["pdfcdf","exceedance","diagnostics"];
 
 %% 解析模块选项
@@ -40,6 +40,8 @@ if any(modules=="exceedance"),    plot_exceedance(data.Y_val,data.Y_pred); end
 if any(modules=="diagnostics"),   plot_diagnostics(data.Y_val,data.Y_pred); end
 if any(modules=="orthogonality"), plot_orthogonality(results,ModelOpts); end
 if any(modules=="coefficients"),  plot_coeffs(results); end
+if any(modules=="coeff_scatter"), plot_coeffs_scatter(results); end
+
 
 end  % ===== 主函数结束 =====
 
@@ -246,5 +248,78 @@ grid on;
 xlabel('Sorted index (non-zero coefficients only)');
 ylabel('log_{10}(|Coefficient|)');
 title('Non-zero PCE coefficients (sorted, log-scale)');
+
+end
+
+%% ============================================================
+% 子函数：稀疏系数散点图（仅绘制非零系数）
+%  - 纵轴为对数尺度
+%  - 点大小 ~ log(|c|)
+%  - 同阶数同色
+%% ============================================================
+function plot_coeffs_scatter(results)
+
+coef_all = results.coefficients(:);   % 全部系数
+Indices  = results.Indices;           % 多索引矩阵 (K × M)
+
+% —— 过滤非零系数 —— 
+nz = abs(coef_all) > 0;   % 稀疏约束选择出的项（LARS/Lasso）
+coef    = coef_all(nz);
+Ind_nz  = Indices(nz, :);
+K_nz    = length(coef);
+
+if K_nz == 0
+    warning('No non-zero coefficients to plot.');
+    return;
+end
+
+% —— log(|c|) —— 
+eps0    = 1e-16;
+abscoef = abs(coef);
+abscoef(abscoef < eps0) = eps0;
+logc    = log10(abscoef);
+
+% —— 阶数 = L1 范数 —— 
+orders = sum(Ind_nz, 2);  % 每个基函数的总阶
+pmax   = max(orders);
+
+% —— 配色（同阶同色） —— 
+cmap   = lines(pmax+1);
+colors = cmap(orders+1, :);
+
+% —— 点大小随 log|c| —— 
+smin = 15;
+smax = 120;
+log_min = min(logc);
+log_max = max(logc);
+
+if log_max - log_min < 1e-12
+    sz = smin * ones(K_nz,1);
+else
+    sz = smin + (logc - log_min) ./ (log_max - log_min) * (smax - smin);
+end
+
+% —— 绘图 —— 
+figure('Name','Sparse PCE Coefficients (Scatter)','Color','w');
+
+scatter(1:K_nz, abscoef, sz, colors, ...
+        'filled', 'MarkerFaceAlpha', 0.85);
+
+set(gca,'YScale','log');
+xlabel('Index of Non-zero Terms');
+ylabel('|Coefficient| (log scale)');
+title('Sparse PCE Coefficients (non-zero only)');
+grid on;
+
+% —— 图例（每个阶数一个颜色） —— 
+hold on;
+uniq_ord = unique(orders);
+
+for oi = uniq_ord'
+    scatter(nan, nan, 60, cmap(oi+1,:), 'filled');
+end
+
+legend(arrayfun(@(o) sprintf('Order %d', o), uniq_ord, 'UniformOutput',false), ...
+       'Location','northeastoutside');
 
 end

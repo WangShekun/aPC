@@ -1,4 +1,4 @@
-function aPC_print(results, InputOpts, Indices, varargin)
+function aPC_print(results, ModelOpts, varargin)
 % aPC_print - 可选择模块的 Arbitrary PCE 结果打印函数
 %
 % 可用模块选项：
@@ -18,7 +18,7 @@ function aPC_print(results, InputOpts, Indices, varargin)
 %% ---------- 默认模块 ----------
 default_modules = ["basic", "samples", "errors"];
 
-if nargin < 4
+if nargin < 3
     modules = default_modules;
 else
     if any(strcmpi(varargin, "all"))
@@ -27,7 +27,7 @@ else
         modules = string(varargin);
     end
 end
-
+Indices = ModelOpts.Indices;
 %% ---------- 打印框架 ----------
 line        = repmat('-', 1, 78);
 line_double = repmat('=', 1, 78);
@@ -42,24 +42,24 @@ fprintf('%s\n', line);
 if any(modules == "basic")
     fprintf('%-28s : %s\n', 'Regression method', upper(results.method));
     fprintf('%-28s : %d\n', 'Total PCE terms', size(results.coefficients,1));
-    fprintf('%-28s : %d\n', 'Max polynomial order', InputOpts.Order);
-    fprintf('%-28s : %.2f\n', 'q-norm', InputOpts.qnorm);
+    fprintf('%-28s : %d\n', 'Max polynomial order', ModelOpts.Order);
+    fprintf('%-28s : %.2f\n', 'q-norm', ModelOpts.qnorm);
 
     if strcmpi(results.method, 'LARS')
         fprintf('%-28s : %d\n', 'Active terms', nnz(results.coefficients));
     end
 
     %% ----- 降维信息打印（若存在） -----
-    if isfield(InputOpts,'ReductionMethod') && ~isempty(InputOpts.ReductionMethod)
-        fprintf('%-28s : %s\n', 'Dimension reduction', upper(InputOpts.ReductionMethod));
+    if isfield(ModelOpts,'ReductionMethod') && ~isempty(ModelOpts.ReductionMethod)
+        fprintf('%-28s : %s\n', 'Dimension reduction', upper(ModelOpts.ReductionMethod));
 
-        if isfield(InputOpts,'red_dim') && ~isempty(InputOpts.red_dim)
-            fprintf('%-28s : %d\n', 'Reduced dimension', InputOpts.red_dim);
+        if isfield(ModelOpts,'red_dim') && ~isempty(ModelOpts.red_dim)
+            fprintf('%-28s : %d\n', 'Reduced dimension', ModelOpts.red_dim);
         end
 
         % ---- KPCA 专属 kernel 信息 ----
-        if strcmpi(InputOpts.ReductionMethod,'kpca')
-            kernel_str = aPC_format_kernel_str(InputOpts);
+        if strcmpi(ModelOpts.ReductionMethod,'kpca')
+            kernel_str = aPC_format_kernel_str(ModelOpts);
             fprintf('%-28s : %s\n', 'KPCA kernel', kernel_str);
         end
     end
@@ -84,7 +84,7 @@ if any(modules == "samples")
         fprintf('%-28s : %s\n', 'Testing samples', '—');
     end
 
-    fprintf('%-28s : %d\n', 'Input dimension', InputOpts.num_vars);
+    fprintf('%-28s : %d\n', 'Input dimension', ModelOpts.num_vars);
 
     fprintf('%s\n', line);
 end
@@ -121,14 +121,14 @@ if any(modules == "orth") || any(modules == "orthogonality")
 
     fprintf('Orthogonality Check (per dimension):\n');
 
-    X_train = InputOpts.X_train;
+    X_train = ModelOpts.X_train;
     mu      = results.mu;
     sigma   = results.sigma;
 
     U = (X_train - mu) ./ sigma;
 
     M = size(U, 2);
-    Order = InputOpts.Order;
+    Order = ModelOpts.Order;
 
     orthErr = zeros(1, M);
 

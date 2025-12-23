@@ -1,11 +1,4 @@
 function grid = aPC_build_search_grid(ModelOpts)
-% aPC_build_search_grid
-% -------------------------------------------------------
-% Build the hyperparameter grid automatically:
-% - scalar value → fixed
-% - vector/cell  → participate in grid search
-% Only fields listed in aPC_list_search_fields() are considered.
-% -------------------------------------------------------
 
 search_fields = aPC_list_search_fields();
 
@@ -15,11 +8,12 @@ keyvals  = {};
 for i = 1:numel(search_fields)
     fn = search_fields{i};
 
-    if ~isfield(ModelOpts, fn)
+    try
+        subs = strsplit(fn,'.');
+        val = getfield(ModelOpts, subs{:});
+    catch
         continue;
     end
-
-    val = ModelOpts.(fn);
 
     % scalar → ignore
     if isnumeric(val) && isscalar(val)
@@ -35,8 +29,10 @@ for i = 1:numel(search_fields)
 
     % cell list → direct search space
     if iscell(val)
-        keynames{end+1} = fn;
-        keyvals{end+1}  = val(:)';
+        if numel(val) > 1      % 多值 → 搜索
+            keynames{end+1} = fn;
+            keyvals{end+1}  = val(:)';
+        end
         continue;
     end
 end
@@ -53,12 +49,15 @@ configs = {};
 
 while true
     Mo = ModelOpts;
+
     for k = 1:numel(keynames)
-        Mo.(keynames{k}) = keyvals{k}{idx(k)};
+        subs = strsplit(keynames{k},'.');
+        Mo = setfield(Mo, subs{:}, keyvals{k}{idx(k)});
     end
+
     configs{end+1} = Mo;
 
-    % increment
+    % increment logic
     j = numel(idx);
     while j>=1
         idx(j)=idx(j)+1;
@@ -72,5 +71,4 @@ while true
 end
 
 grid = [configs{:}];
-
 end

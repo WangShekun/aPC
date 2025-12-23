@@ -30,6 +30,9 @@ for j = 1:M
         case '2018'
             [vals_j, coeffs_j] = aPC_eval_aPC_2018(P, uj);
 
+        case 'stieltjes'
+            [vals_j, coeffs_j] = aPC_eval_aPC_Stieltjes(P, uj);
+
         otherwise
             error('Unknown aPC method "%s".', ModelOpts.aPC_Method);
     end

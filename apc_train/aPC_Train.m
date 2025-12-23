@@ -58,14 +58,10 @@ if ~ModelOpts.Parallel
             redm = 'NONE';
         end
         
-        % KPCA 才显示 kernel 参数
-        if isfield(Mo,'ReductionMethod') && strcmpi(Mo.ReductionMethod,'kpca')
-            extra_str = [' | KPCA(' aPC_format_kernel_str(Mo) ')'];
-        else
-            extra_str = '';
-        end
+        % KPCA,SKPCA 显示 kernel 参数
+        extra_str = aPC_kernel_print_str(Mo);
         
-        fprintf('\r[aPC_Train] [%s] %3d%% \n| RD=%s | rd=%s | p=%d | q=%g%s |', ...
+        fprintf('\r[aPC_Train] [%s] %3d%% \n| RD=%s | rd=%s | p=%d | q=%g%s |\n', ...
             bar_str, round(pct*100), redm, rd_str, Mo.Order, Mo.qnorm, extra_str);
 
 
@@ -91,7 +87,8 @@ if ~ModelOpts.Parallel
         res_tmp = aPC_RegressionMethods(Psi_tmp, data_tmp.Y_train, Mo_tmp.RegressionMethod);
 
         % ---------- 更新最优 ----------
-        if res_tmp.LOO < best.LOO
+        if res_tmp.LOO < best.LOO || ~isfinite(best.LOO)
+
             best.LOO        = res_tmp.LOO;
             best.results    = res_tmp;
             best.ModelOpts  = Mo_tmp;
@@ -99,6 +96,7 @@ if ~ModelOpts.Parallel
             best.univ       = univ_tmp;
             best.ReduceModel= Red_tmp;
             best.choice     = Mo;
+            best.U_red      = data_tmp.U;
         end
 
         % aPC_print(res_tmp, Mo_tmp, Mo_tmp.Indices);
@@ -110,6 +108,9 @@ if ~ModelOpts.Parallel
     results             = best.results;
     ModelOpts           = best.ModelOpts;
     ReduceModel         = best.ReduceModel;
+
+    % ===== 保存最佳降维后的 U =====
+    data.U_red = best.U_red;
 
     results.poly_coeffs = best.poly;
     results.univ_vals   = best.univ;
@@ -140,12 +141,8 @@ if ~ModelOpts.Parallel
         rd_str = 'none';
     end
     
-    % --- kernel 信息（仅 KPCA） ---
-    if strcmpi(redm,'KPCA')
-        extra_str = [' | KPCA(' aPC_format_kernel_str(mo) ')'];
-    else
-        extra_str = '';
-    end
+    % --- kernel 信息（仅 KPCA,SKPCA） ---
+    extra_str = aPC_kernel_print_str(Mo);
     
     fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
             redm, rd_str, mo.Order, mo.qnorm, extra_str, results.LOO);
@@ -208,6 +205,10 @@ res = aPC_RegressionMethods(Psi, data_tmp.Y_train, Mo_tmp.RegressionMethod);
 results                 = res;
 ModelOpts               = Mo_tmp;
 ReduceModel             = Red_tmp;
+
+% ===== 保存最佳降维后的 U（并行版本）=====
+data.U_red = data_tmp.U;
+
 results.poly_coeffs     = poly_coeffs;
 results.univ_vals       = univ_vals;
 results.Indices         = ModelOpts.Indices;
@@ -237,13 +238,28 @@ else
     rd_str = 'none';
 end
 
-% --- kernel 信息（仅 KPCA） ---
-if strcmpi(redm,'KPCA')
-    extra_str = [' | KPCA(' aPC_format_kernel_str(mo) ')'];
-else
-    extra_str = '';
-end
+% --- kernel 信息（仅 KPCA,SKPCA） ---
+extra_str = aPC_kernel_print_str(Mo);
 
 fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
         redm, rd_str, mo.Order, mo.qnorm, extra_str, results.LOO);
+end
+
+%% 打印KPCA和SKPCA的核信息
+function s = aPC_kernel_print_str(Mo)
+% 若是 KPCA/SKPCA，就打印 kernel 信息；否则返回空字符串。
+
+if ~isfield(Mo,'ReductionMethod') || isempty(Mo.ReductionMethod)
+    s = '';
+    return;
+end
+
+m = lower(Mo.ReductionMethod);
+
+% 属于 KPI 族（KPCA + SKPCA）
+if any(strcmp(m, {'kpca','skpca_hsic'}))
+    s = [' | ' aPC_format_kernel_str(Mo)];
+else
+    s = '';
+end
 end
