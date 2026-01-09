@@ -1,6 +1,6 @@
-function [X_red, ReduceModel] = aPC_dimReduction_mpldr(U, Y, ModelOpts)
+function [X_red, ReduceModel] = aPC_dimReduction_mcp(U, Y, ModelOpts)
 % -------------------------------------------------------------------------
-% aPC_dimReduction_mpldr — Moment-Preserving Linear DR
+% aPC_dimReduction_mcp — Moment-Constrained Projection
 %
 %   降维矩阵 W 通过求解 Stiefel(d,r) 上的优化问题得到：
 %
@@ -19,8 +19,8 @@ r = ModelOpts.red_dim;
 
 %% ===== 参数读取 =====
 opts = struct();
-if isfield(ModelOpts,'mpldr_opts')
-    opts = ModelOpts.mpldr_opts;
+if isfield(ModelOpts,'mcp_opts')
+    opts = ModelOpts.mcp_opts;
 end
 
 opts = setdef(opts,'maxIter',800);
@@ -99,7 +99,7 @@ end
 %% ===== 输出 =====
 X_red = U * (Wwhite * W);
 
-ReduceModel.method = 'mpldr';
+ReduceModel.method = 'mcp';
 ReduceModel.params.W = W;
 ReduceModel.params.Wwhite = Wwhite;
 ReduceModel.transform = @(U_new)(U_new * (Wwhite * W));

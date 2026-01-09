@@ -1,12 +1,12 @@
-function PCE_terms = aPC_GenerateTerms(InputOpts)
+function PCE_terms = aPC_GenerateTerms(ModelOpts)
     % PC_GenerateTerms：生成多项式阶数组合，并应用 q-norm 截断
     % InputOpts.Order：最大阶数
     % InputOpts.qnorm：q-norm参数
     % InputOpts.p：截断的阈值（默认为1，表示不进行截断）
     
-    Order = InputOpts.Order;      % 最大阶数
-    qnorm = InputOpts.qnorm;      % q-norm参数（默认为1，表示不进行截断）
-    num_vars = InputOpts.num_vars;  % 输入变量个数
+    Order = ModelOpts.Order;      % 最大阶数
+    qnorm = ModelOpts.qnorm;      % q-norm参数（默认为1，表示不进行截断）
+    num_vars = ModelOpts.num_vars;  % 输入变量个数
     
     % 如果未指定qnorm，默认设置为1（不进行截断）
     if isempty(qnorm)

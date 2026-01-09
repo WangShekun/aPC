@@ -73,8 +73,8 @@ function [data, ModelOpts, ReduceModel] = aPC_dimReduction(data, ModelOpts)
             % KPCA修改得到的SPKCA
             [X_red, ReduceModel] = aPC_dimReduction_skpca_hsic(U, Y, ModelOpts);
 
-        case 'mpldr'
-            [X_red, ReduceModel] = aPC_dimReduction_mpldr(U, Y, ModelOpts);
+        case 'mcp'
+            [X_red, ReduceModel] = aPC_dimReduction_mcp(U, Y, ModelOpts);
 
 
 

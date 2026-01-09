@@ -1,4 +1,4 @@
-function aPC_print(results, ModelOpts, varargin)
+function aPC_print(results, ModelOpts, data, varargin)
 % aPC_print - 可选择模块的 Arbitrary PCE 结果打印函数
 %
 % 可用模块选项：
@@ -6,8 +6,7 @@ function aPC_print(results, ModelOpts, varargin)
 %   "samples"        - 训练/测试信息
 %   "errors"         - 误差指标
 %   "coefficients"   - 多项式系数
-%   "orth"           - 正交性检查（需另外指定）
-%   "orthogonality"  - 同上
+%   "orthogonality"  - 正交性检查
 %
 % 特殊：
 %   "all"            - 打印所有模块
@@ -16,9 +15,9 @@ function aPC_print(results, ModelOpts, varargin)
 %   basic + samples + errors
 
 %% ---------- 默认模块 ----------
-default_modules = ["basic", "samples", "errors"];
+default_modules = ["basic", "samples", "errors", "orthogonality"];
 
-if nargin < 3
+if nargin < 4
     modules = default_modules;
 else
     if any(strcmpi(varargin, "all"))
@@ -117,15 +116,13 @@ end
 %% ============================================================
 %% 4) 正交性检查（orth / orthogonality）
 %% ============================================================
-if any(modules == "orth") || any(modules == "orthogonality")
+if any(modules == "orthogonality")
 
     fprintf('Orthogonality Check (per dimension):\n');
 
-    X_train = ModelOpts.X_train;
-    mu      = results.mu;
-    sigma   = results.sigma;
+    X_train = data.X_train;
 
-    U = (X_train - mu) ./ sigma;
+    U = results.map_U.transform(X_train);
 
     M = size(U, 2);
     Order = ModelOpts.Order;
@@ -134,7 +131,7 @@ if any(modules == "orth") || any(modules == "orthogonality")
 
     for j = 1:M
         Uj = U(:, j);
-        [psi_j, ~] = aPC_eval_aPC(Order, Uj);
+        [psi_j, ~] = aPC_eval_aPC_2012(Order, Uj);
         orthErr(j) = aPC_check_orthogonality(psi_j);
 
         fprintf('  Dimension %d orth. error : %.3e\n', j, orthErr(j));

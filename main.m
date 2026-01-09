@@ -5,10 +5,9 @@ aPC
 
 ModelOpts = struct();
 ModelOpts.Order    = [3];      % 最大多项式阶数
-ModelOpts.qnorm    = [1];       % q-norm
-ModelOpts.num_vars = 100;      % 输入维度
+ModelOpts.qnorm    = [1];       % q-norm 
 
-ModelOpts.ReductionMethod = 'mpldr';
+ModelOpts.ReductionMethod = 'mcp';
 ModelOpts.red_dim  = [40];
 
 % ModelOpts.kernel_type   = {'gaussian'};
@@ -19,19 +18,19 @@ ModelOpts.red_dim  = [40];
 % ModelOpts.label_kernel_type = {'gaussian'};
 % ModelOpts.label_kernel_gamma  = [1/128^2];
 
-ModelOpts.mpldr_opts.maxIter = 3000;
+ModelOpts.mcp_opts.maxIter = 3000;
 
-ModelOpts.mpldr_opts.whiten = 1;
-ModelOpts.mpldr_opts.alpha_cov = 1.0;
+ModelOpts.mcp_opts.whiten = 1;
+ModelOpts.mcp_opts.alpha_cov = 1.0;
 
-ModelOpts.mpldr_opts.max_moment_order = [6];
-ModelOpts.mpldr_opts.moment_base = 1.0;
-ModelOpts.mpldr_opts.moment_decay = [0.4];
+ModelOpts.mcp_opts.max_moment_order = [6];
+ModelOpts.mcp_opts.moment_base = 1.0;
+ModelOpts.mcp_opts.moment_decay = [0.4];
 
-ModelOpts.mpldr_opts.lambda_y = [0.1];
-ModelOpts.mpldr_opts.supervision_mode = 'pls';
+ModelOpts.mcp_opts.lambda_y = [0.1];
+ModelOpts.mcp_opts.supervision_mode = 'pls';
 
-ModelOpts.mpldr_opts.manopt_solver = 'rlbfgs';
+ModelOpts.mcp_opts.manopt_solver = 'rlbfgs';
 
 ModelOpts.aPC_Method = '2012';      % 可选 '2012' | '2018' | 'stieltjes'
 ModelOpts.RegressionMethod = 'lars';
@@ -87,7 +86,7 @@ data.Y_pred = aPC_Predict(data.X_val, results, ModelOpts, ReduceModel);
 results.RelMSE = sum((data.Y_pred - data.Y_val).^2) / ...
                  sum((data.Y_val - mean(data.Y_val)).^2);
 
-aPC_print(results, ModelOpts);
+aPC_print(results, ModelOpts, data);
 
 % aPC_plot(data, results, ModelOpts, "all");
 
