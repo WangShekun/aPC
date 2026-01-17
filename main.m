@@ -5,10 +5,11 @@ aPC
 
 ModelOpts = struct();
 ModelOpts.Order    = [3];      % 最大多项式阶数
-ModelOpts.qnorm    = [1];       % q-norm 
+ModelOpts.qnorm    = [0.9];       % q-norm 
 
 ModelOpts.ReductionMethod = 'mcp';
-ModelOpts.red_dim  = [40];
+ModelOpts.red_dim  = [30];
+ModelOpts.SearchMetric = 'relmse';
 
 % ModelOpts.kernel_type   = {'gaussian'};
 % ModelOpts.kernel_gamma  = [0.1];
@@ -19,20 +20,29 @@ ModelOpts.red_dim  = [40];
 % ModelOpts.label_kernel_gamma  = [1/128^2];
 
 ModelOpts.mcp_opts.maxIter = 3000;
-
 ModelOpts.mcp_opts.whiten = 1;
 ModelOpts.mcp_opts.alpha_cov = 1.0;
-
 ModelOpts.mcp_opts.max_moment_order = [6];
 ModelOpts.mcp_opts.moment_base = 1.0;
-ModelOpts.mcp_opts.moment_decay = [0.4];
-
-ModelOpts.mcp_opts.lambda_y = [0.1];
+ModelOpts.mcp_opts.moment_decay = [0.6];
+ModelOpts.mcp_opts.lambda_y = [0.05];
 ModelOpts.mcp_opts.supervision_mode = 'pls';
-
 ModelOpts.mcp_opts.manopt_solver = 'rlbfgs';
 
-ModelOpts.aPC_Method = '2012';      % 可选 '2012' | '2018' | 'stieltjes'
+% ModelOpts.ica_approach      = 'symm';
+% ModelOpts.ica_fun           = 'tanh';
+% ModelOpts.ica_a1            = 1.0;        % tanh 尺度
+% ModelOpts.ica_epsilon       = 1e-4;
+% ModelOpts.ica_maxIter       = 200;
+% ModelOpts.ica_mu             = 1.0;
+% ModelOpts.ica_stabilization  = 'on';
+% ModelOpts.ica_whiten_solver = 'svd';
+% ModelOpts.ica_verbose       = 0;
+
+% ModelOpts.rp_type         = 'gaussian';   % 默认 & 最常见
+% ModelOpts.rp_scale        = 'jl';          % Johnson–Lindenstrauss 缩放
+
+ModelOpts.aPC_Method = 'stieltjes';      % 可选 '2012' | '2018' | 'stieltjes'
 ModelOpts.RegressionMethod = 'lars';
 ModelOpts.Parallel = 0;
 
@@ -46,7 +56,7 @@ uqlab
 
 InputOpts = dim100_Input;
 % InputOpts = dim150_Input;
-% InputOpts = dim200_Input;
+% InputOpts = dim200_Input_Case3;
 % InputOpts = dim300_Input;
 
 myInput = uq_createInput(InputOpts);
@@ -62,7 +72,7 @@ data.Y_val   = dim100(data.X_val);
 MetaOpts_OLS.Type = 'MetaModel';
 MetaOpts_OLS.MetaType = 'PCE';
 MetaOpts_OLS.Method = 'LARS';
-MetaOpts_OLS.TruncOptions.qNorm = 1;
+MetaOpts_OLS.TruncOptions.qNorm = 0.9;
 MetaOpts_OLS.Degree = 3;
 MetaOpts_OLS.ExpDesign.X = data.X_train;
 MetaOpts_OLS.ExpDesign.Y = data.Y_train;
@@ -79,15 +89,15 @@ RELMSE_OLS = sum((Y_OLS - data.Y_val).^2) / sum((mean(data.Y_val) - data.Y_val).
 % % uq_display(PCESobolAnalysis);
 % uq_print(PCESobolAnalysis);
 %% 
+tic
 [results, ModelOpts, data, ReduceModel] = aPC_Train(data, ModelOpts);
-
+toc
 data.Y_pred = aPC_Predict(data.X_val, results, ModelOpts, ReduceModel);
 
 results.RelMSE = sum((data.Y_pred - data.Y_val).^2) / ...
                  sum((data.Y_val - mean(data.Y_val)).^2);
 
 aPC_print(results, ModelOpts, data);
-
 % aPC_plot(data, results, ModelOpts, "all");
 
 %% 不确定性量化
