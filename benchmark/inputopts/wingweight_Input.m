@@ -20,3 +20,34 @@ InputOpts.Marginals(9).Parameters = [1700 2500];
 InputOpts.Marginals(10).Type = 'Uniform';
 InputOpts.Marginals(10).Parameters = [0.025 0.08];
 end
+
+% function InputOpts = wingweight_Input()
+% % wingweight_Input - Gaussian version
+% % Each variable: Normal(mu, sigma^2) with
+% %   mu    = (a+b)/2
+% %   sigma = (b-a)/6   (treat original [a,b] as approx ±3σ)
+% 
+% ranges = [ ...
+%     150   200;     % 1
+%     220   300;     % 2
+%     6     10;      % 3
+%     -10   10;      % 4
+%     16    45;      % 5
+%     0.5   1;       % 6
+%     0.08  0.18;    % 7
+%     2.5   6;       % 8
+%     1700  2500;    % 9
+%     0.025 0.08];   % 10
+% 
+% for i = 1:size(ranges,1)
+%     a = ranges(i,1);
+%     b = ranges(i,2);
+% 
+%     mu = 0.5*(a+b);
+%     sigma = (b-a)/6;
+% 
+%     InputOpts.Marginals(i).Type = 'Gaussian';          % UQLab: Normal
+%     InputOpts.Marginals(i).Parameters = [mu sigma];    % [mean, std]
+% end
+% 
+% end

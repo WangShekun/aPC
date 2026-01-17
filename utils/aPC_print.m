@@ -114,32 +114,113 @@ if any(modules == "errors")
 end
 
 %% ============================================================
-%% 4) 正交性检查（orth / orthogonality）
+%% 4) 正交性检查（orthogonality）
 %% ============================================================
 if any(modules == "orthogonality")
 
-    fprintf('Orthogonality Check (per dimension):\n');
+    fprintf('Orthogonality / Conditioning Diagnostics:\n');
 
-    X_train = data.X_train;
+    if ~isfield(results,'univ_vals') || isempty(results.univ_vals)
+        fprintf('  [WARN] results.univ_vals not found -> skip diagnostics.\n');
+        fprintf('%s\n', line);
+    else
+        univ_vals = results.univ_vals;      % N x M x (P+1)
+        [N_u, M_u, Q_u] = size(univ_vals);
 
-    U = results.map_U.transform(X_train);
+        % ---- 取 Indices（优先 results.Indices，其次 ModelOpts.Indices）----
+        if isfield(results,'Indices') && ~isempty(results.Indices)
+            Indices = results.Indices;
+            idx_src = 'results.Indices';
+        else
+            Indices = ModelOpts.Indices;
+            idx_src = 'ModelOpts.Indices';
+        end
 
-    M = size(U, 2);
-    Order = ModelOpts.Order;
+        % ---- 一维阶数（仅用于打印说明；Psi 构造会用 Indices 指定的阶）----
+        p_u = Q_u - 1;
 
-    orthErr = zeros(1, M);
+        fprintf('  Data: N = %d, M = %d, univ basis max order = %d (Q = %d)\n', N_u, M_u, p_u, Q_u);
+        fprintf('  Indices: size = %d x %d  (from %s)\n', size(Indices,1), size(Indices,2), idx_src);
 
-    for j = 1:M
-        Uj = U(:, j);
-        [psi_j, ~] = aPC_eval_aPC_2012(Order, Uj);
-        orthErr(j) = aPC_check_orthogonality(psi_j);
+        %% ---------- (A) Univariate orthogonality sanity check ----------
+        % 对每个维度，用 0..min(p_u, ModelOpts.Order) 检查 Gram ≈ I
+        p_check = ModelOpts.Order;
+        if p_check > p_u, p_check = p_u; end
+        nb = p_check + 1;
 
-        fprintf('  Dimension %d orth. error : %.3e\n', j, orthErr(j));
+        fprintf('  [Univariate Gram check] using p = %d (basis size = %d)\n', p_check, nb);
+
+        I = eye(nb);
+        froErr  = zeros(1, M_u);
+        condEst = zeros(1, M_u);
+
+        for j = 1:M_u
+            Phi = squeeze(univ_vals(:, j, 1:nb));     % N x (p+1)
+            G   = (Phi' * Phi) / size(Phi,1);
+            G   = (G + G')/2;
+
+            froErr(j) = norm(G - I, 'fro');
+
+            ev = eig(G);
+            ev = sort(real(ev), 'ascend');
+            lamMin = ev(1); lamMax = ev(end);
+            if lamMin <= 0, condEst(j) = inf; else, condEst(j) = lamMax/lamMin; end
+
+            fprintf('    Dim %2d | cond ~ %9.3e | ||G-I||_F = %9.3e\n', j, condEst(j), froErr(j));
+        end
+        fprintf('    Summary: max ||G-I||_F = %.3e\n', max(froErr));
+
+        %% ---------- (B) Multivariate design-matrix diagnostics (Psi) ----------
+        % 由 Indices + univ_vals 构造 Psi
+        try
+            Psi = aPC_PCE_create_Psi(Indices, univ_vals);   % N x K
+        catch ME
+            fprintf('  [Psi] FAILED to create Psi: %s\n', ME.message);
+            fprintf('%s\n', line);
+            return;
+        end
+
+        [N, K] = size(Psi);
+        fprintf('  [Psi diagnostics] Psi created: size = %d x %d (N/K = %.3f)\n', N, K, N/max(K,1));
+
+        % rank (数值秩)
+        try
+            rk = rank(Psi);
+        catch
+            rk = NaN;
+        end
+        fprintf('    rank(Psi) = %g (max = %d)\n', rk, min(N,K));
+
+        % Normal matrix conditioning
+        H = Psi' * Psi;
+
+        rc = rcond(H);
+        fprintf('    rcond(Psi''Psi) = %.3e\n', rc);
+
+        try
+            ce = condest(H);
+            fprintf('    condest(Psi''Psi) ~ %.3e\n', ce);
+        catch
+            fprintf('    condest(Psi''Psi) ~ [NA]\n');
+        end
+
+        % Optional: report diag dominance / column scaling
+        coln = sqrt(sum(Psi.^2, 1));
+        fprintf('    col-norm: min = %.3e, median = %.3e, max = %.3e\n', min(coln), median(coln), max(coln));
+
+        % Leverage via QR: h_i = ||Q(i,:)||^2
+        try
+            [Q, ~] = qr(Psi, 0);
+            h = sum(Q.^2, 2);
+            fprintf('    leverage h: max = %.4f, mean = %.4f, std = %.4f\n', max(h), mean(h), std(h));
+        catch
+            fprintf('    leverage h: [WARN] qr(Psi,0) failed (size/memory).\n');
+        end
+
+        fprintf('%s\n', line);
     end
-
-    fprintf('  Max orthogonality error  : %.3e\n', max(orthErr));
-    fprintf('%s\n', line);
 end
+
 
 %% ============================================================
 %% 5) 系数（coefficients）

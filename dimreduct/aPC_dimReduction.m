@@ -76,7 +76,11 @@ function [data, ModelOpts, ReduceModel] = aPC_dimReduction(data, ModelOpts)
         case 'mcp'
             [X_red, ReduceModel] = aPC_dimReduction_mcp(U, Y, ModelOpts);
 
+        case 'ica'
+            [X_red, ReduceModel] = aPC_dimReduction_ica(U, ModelOpts);
 
+        case 'rp'
+            [X_red, ReduceModel] = aPC_dimReduction_rp(U, ModelOpts);
 
         otherwise
             error('Unknown ReductionMethod: %s', ModelOpts.ReductionMethod);

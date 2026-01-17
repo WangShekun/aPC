@@ -1,4 +1,9 @@
 %% ================= 内部：Stieltjes 三项递推 + 归一化 =================
+% H.-P. Wan, W.-X. Ren, and M. D. Todd, 
+% “Arbitrary polynomial chaos expansion method for uncertainty quantification
+% and global sensitivity analysis in structural dynamics,” 
+% Mechanical Systems and Signal Processing, vol. 142, p. 106732, Aug. 2020, 
+% doi: 10.1016/j.ymssp.2020.106732.
 function [vals, coeffs_polyval] = aPC_eval_aPC_Stieltjes(P, u)
 % 构造流程：
 %   1) 在样本经验内积下，用三项递推生成 monic 正交多项式 {P_k}

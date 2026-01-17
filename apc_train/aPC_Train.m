@@ -10,9 +10,16 @@ function [results, ModelOpts, data, ReduceModel] = aPC_Train(data, ModelOpts)
 if ~isfield(ModelOpts, 'RegressionMethod') || isempty(ModelOpts.RegressionMethod)
     ModelOpts.RegressionMethod = 'LARS';
 end
+
 if ~isfield(ModelOpts, 'qnorm') || isempty(ModelOpts.qnorm)
     ModelOpts.qnorm = 1;
 end
+
+%% ---------- 搜索准则 ----------
+if ~isfield(ModelOpts, 'SearchMetric') || isempty(ModelOpts.SearchMetric)
+    ModelOpts.SearchMetric = 'loo';   % 'loo' | 'relmse'
+end
+
 
 %% ---------- 标准化 ----------
 [data, map_U] = aPC_PCE_map_to_U(data.X_train, data);
@@ -21,14 +28,20 @@ end
 grid = aPC_build_search_grid(ModelOpts);
 total = numel(grid);
 
+if total == 1
+    ModelOpts.Parallel = false;
+end
+
 if ~ModelOpts.Parallel
 
     %% ---------- 初始化进度条 ----------
     cnt = 0;
     bar_len = 40;
+    fprintf('\n>>>>>>>>            aPC TRAIN BEGIN            <<<<<<<\n\n');
     fprintf('[aPC_Train] (Serial) Starting search over %d configurations...\n', total);
 
-    best = struct('LOO', Inf);
+    best = struct('score', Inf);
+
     ReduceModel = [];
 
     for gi = 1:total
@@ -42,28 +55,6 @@ if ~ModelOpts.Parallel
 
         % 当前候选参数（原始版本）
         Mo = grid(gi);
-        
-        %% ---- 打印进度条信息 ----
-        % 打印降维信息
-        if isfield(Mo,'red_dim') && ~isempty(Mo.red_dim)
-            rd_str = num2str(Mo.red_dim);
-        else
-            rd_str = '-';
-        end
-
-        % 降维方法名（没有就显示 none）
-        if isfield(Mo,'ReductionMethod') && ~isempty(Mo.ReductionMethod)
-            redm = upper(Mo.ReductionMethod);
-        else
-            redm = 'NONE';
-        end
-        
-        % KPCA,SKPCA 显示 kernel 参数
-        extra_str = aPC_kernel_print_str(Mo);
-        
-        fprintf('\r[aPC_Train] [%s] %3d%% \n| RD=%s | rd=%s | p=%d | q=%g%s |\n', ...
-            bar_str, round(pct*100), redm, rd_str, Mo.Order, Mo.qnorm, extra_str);
-
 
         %% ---------- 降维 ----------
         if isfield(Mo,'red_dim') && ~isempty(Mo.red_dim)
@@ -79,15 +70,62 @@ if ~ModelOpts.Parallel
 
         % ---------- 构建基函数索引 ----------
         Mo_tmp.Indices = aPC_GenerateTerms(Mo_tmp);
-
+        
         % ---------- 构造多维基函数 ----------
         [Psi_tmp, poly_tmp, univ_tmp] = aPC_PCE_build_Psi(Mo_tmp, data_tmp);
 
         % ---------- 回归 ----------
         res_tmp = aPC_RegressionMethods(Psi_tmp, data_tmp.Y_train, Mo_tmp.RegressionMethod);
 
+        %% ---------- 计算搜索准则 ----------
+        switch lower(ModelOpts.SearchMetric)
+        
+            case 'loo'
+                score_tmp = res_tmp.LOO;
+        
+            case 'relmse'
+                % 必须有验证集
+                if ~isfield(data, 'X_val') || ~isfield(data, 'Y_val')
+                    error('[aPC_Train] SearchMetric=relmse requires data.X_val and data.Y_val');
+                end
+
+                res_tmp.map_U       = map_U;
+                res_tmp.poly_coeffs = poly_tmp;
+                res_tmp.Indices     = Mo_tmp.Indices;
+        
+                % 用当前候选模型在验证集上算 RelMSE
+                Yv_pred = aPC_Predict(data.X_val, res_tmp, Mo_tmp, Red_tmp);
+                score_tmp = sum((Yv_pred - data.Y_val).^2) / ...
+                            sum((data.Y_val - mean(data.Y_val)).^2);
+        
+            otherwise
+                error('[aPC_Train] Unknown SearchMetric: %s', ModelOpts.SearchMetric);
+        end
+
+        %% ---- 打印进度条信息 ----
+        % 打印降维信息
+        if isfield(Mo_tmp,'red_dim') && ~isempty(Mo_tmp.red_dim)
+            rd_str = num2str(Mo_tmp.red_dim);
+        else
+            rd_str = '-';
+        end
+
+        % 降维方法名（没有就显示 none）
+        if isfield(Mo_tmp,'ReductionMethod') && ~isempty(Mo_tmp.ReductionMethod)
+            redm = upper(Mo_tmp.ReductionMethod);
+        else
+            redm = 'NONE';
+        end
+
+        % KPCA,SKPCA 显示 kernel 参数
+        extra_str = aPC_kernel_print_str(Mo_tmp);
+
+        fprintf('\r[aPC_Train] [%s] %3d%% \n| RD=%s | rd=%s | p=%d | q=%g%s | %s=%e\n', ...
+            bar_str, round(pct*100), redm, rd_str, Mo_tmp.Order, Mo_tmp.qnorm, extra_str, upper(Mo_tmp.SearchMetric), score_tmp);
+
+
         % ---------- 更新最优 ----------
-        if res_tmp.LOO < best.LOO || ~isfinite(best.LOO)
+    if score_tmp < best.score || ~isfinite(best.score)
 
             best.LOO        = res_tmp.LOO;
             best.results    = res_tmp;
@@ -97,6 +135,7 @@ if ~ModelOpts.Parallel
             best.ReduceModel= Red_tmp;
             best.choice     = Mo;
             best.U_red      = data_tmp.U;
+            best.score = score_tmp;
         end
 
         % aPC_print(res_tmp, Mo_tmp, Mo_tmp.Indices);
@@ -144,8 +183,9 @@ if ~ModelOpts.Parallel
     % --- kernel 信息（仅 KPCA,SKPCA） ---
     extra_str = aPC_kernel_print_str(Mo);
     
-    fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
-            redm, rd_str, mo.Order, mo.qnorm, extra_str, results.LOO);
+    fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | %s=%e\n', ...
+            redm, rd_str, mo.Order, mo.qnorm, extra_str, upper(ModelOpts.SearchMetric), best.score);
+    fprintf('\n>>>>>>>>             aPC TRAIN END             <<<<<<<\n\n');
 
     return;  % 串行版本结束
 end
@@ -173,17 +213,18 @@ afterEach(dq, @updateBar);
 if isempty(gcp('nocreate')), parpool; end
 
 %% —— 并行评估 -------
-outs(total) = struct('LOO',Inf);
+outs(total) = struct('score', Inf);
 
 parfor gi = 1:total
-    outs(gi) = aPC_evaluateCandidate_LOO(data, grid(gi));
+    outs(gi) = aPC_evaluateCandidate_score(data, grid(gi), map_U);
     send(dq, gi);
 end
 
 fprintf('\n');
 
 % —— 最优组合 ——
-[~, best_idx] = min([outs.LOO]);
+[~, best_idx] = min([outs.score]);
+best_score = outs(best_idx).score;
 best_choice   = grid(best_idx);
 
 %% —— 串行重训 ——
@@ -241,8 +282,8 @@ end
 % --- kernel 信息（仅 KPCA,SKPCA） ---
 extra_str = aPC_kernel_print_str(Mo);
 
-fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
-        redm, rd_str, mo.Order, mo.qnorm, extra_str, results.LOO);
+fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | %s=%e\n', ...
+        redm, rd_str, mo.Order, mo.qnorm, extra_str, upper(ModelOpts.SearchMetric), best_score);
 end
 
 %% 打印KPCA和SKPCA的核信息

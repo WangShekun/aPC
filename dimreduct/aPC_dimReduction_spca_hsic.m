@@ -64,7 +64,8 @@ function [X_red, ReduceModel] = aPC_dimReduction_spca_hsic(U, Y, ncomp)
         % ====================================
         method = 'spca-dual';
 
-        A = Uc * (H * Ky * H) * Uc.';   % N×N
+        % A = Uc * (H * Ky * H) * Uc.';   % N×N
+        A = (Uc * Uc.') * H * Ky * H;   % N×N
         A = (A + A.') / 2;
 
         [V_raw, D_raw] = eig(A);

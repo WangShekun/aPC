@@ -31,7 +31,7 @@ opts = setdef(opts,'max_moment_order',4);
 opts = setdef(opts,'moment_base',1.0);
 opts = setdef(opts,'moment_decay',0.6);
 
-opts = setdef(opts,'lambda_y',0);
+opts = setdef(opts,'lambda_y',0.1);
 opts = setdef(opts,'supervision_mode','corr');
 
 opts = setdef(opts,'manopt_solver','rlbfgs');     % 'rlbfgs' 或 'trustregions'
@@ -49,7 +49,7 @@ if opts.lambda_y > 0 && ~isempty(Y)
 end
 
 %% ===== 原空间 K 阶矩 =====
-U_flat = U(:);
+U_flat = U(:); %这个和下面白化空间计算mk的部分是可替换的，测试来看没什么区别
 momU = zeros(1,K);
 for k = 1:K
     momU(k) = mean(U_flat.^k);
@@ -65,6 +65,13 @@ else
     Wwhite = eye(d);
 end
 U_w = U * Wwhite;
+
+%% ===== 在白化空间计算参考矩 mk（momU）=====
+% U_flat = U_w(:);                % <-- 关键：用 U_w 而不是 U
+% momU   = zeros(1,K);
+% for k = 1:K
+%     momU(k) = mean(U_flat.^k);
+% end
 
 %% ===== 初始化 W =====
 [Vp,~] = eigs(cov(U_w), r, 'largestreal');
