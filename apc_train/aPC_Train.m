@@ -15,12 +15,6 @@ if ~isfield(ModelOpts, 'qnorm') || isempty(ModelOpts.qnorm)
     ModelOpts.qnorm = 1;
 end
 
-%% ---------- 搜索准则 ----------
-if ~isfield(ModelOpts, 'SearchMetric') || isempty(ModelOpts.SearchMetric)
-    ModelOpts.SearchMetric = 'loo';   % 'loo' | 'relmse'
-end
-
-
 %% ---------- 标准化 ----------
 [data, map_U] = aPC_PCE_map_to_U(data.X_train, data);
 
@@ -77,30 +71,8 @@ if ~ModelOpts.Parallel
         % ---------- 回归 ----------
         res_tmp = aPC_RegressionMethods(Psi_tmp, data_tmp.Y_train, Mo_tmp.RegressionMethod);
 
-        %% ---------- 计算搜索准则 ----------
-        switch lower(ModelOpts.SearchMetric)
-        
-            case 'loo'
-                score_tmp = res_tmp.LOO;
-        
-            case 'relmse'
-                % 必须有验证集
-                if ~isfield(data, 'X_val') || ~isfield(data, 'Y_val')
-                    error('[aPC_Train] SearchMetric=relmse requires data.X_val and data.Y_val');
-                end
-
-                res_tmp.map_U       = map_U;
-                res_tmp.poly_coeffs = poly_tmp;
-                res_tmp.Indices     = Mo_tmp.Indices;
-        
-                % 用当前候选模型在验证集上算 RelMSE
-                Yv_pred = aPC_Predict(data.X_val, res_tmp, Mo_tmp, Red_tmp);
-                score_tmp = sum((Yv_pred - data.Y_val).^2) / ...
-                            sum((data.Y_val - mean(data.Y_val)).^2);
-        
-            otherwise
-                error('[aPC_Train] Unknown SearchMetric: %s', ModelOpts.SearchMetric);
-        end
+        %% ---------- 计算搜索准则（仅 LOO） ----------
+        score_tmp = res_tmp.LOO;
 
         %% ---- 打印进度条信息 ----
         % 打印降维信息
@@ -120,9 +92,8 @@ if ~ModelOpts.Parallel
         % KPCA,SKPCA 显示 kernel 参数
         extra_str = aPC_kernel_print_str(Mo_tmp);
 
-        fprintf('\r[aPC_Train] [%s] %3d%% \n| RD=%s | rd=%s | p=%d | q=%g%s | %s=%e\n', ...
-            bar_str, round(pct*100), redm, rd_str, Mo_tmp.Order, Mo_tmp.qnorm, extra_str, upper(Mo_tmp.SearchMetric), score_tmp);
-
+        fprintf('\r[aPC_Train] [%s] %3d%% \n| RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
+            bar_str, round(pct*100), redm, rd_str, Mo_tmp.Order, Mo_tmp.qnorm, extra_str, score_tmp);
 
         % ---------- 更新最优 ----------
     if score_tmp < best.score || ~isfinite(best.score)
@@ -183,8 +154,8 @@ if ~ModelOpts.Parallel
     % --- kernel 信息（仅 KPCA,SKPCA） ---
     extra_str = aPC_kernel_print_str(Mo);
     
-    fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | %s=%e\n', ...
-            redm, rd_str, mo.Order, mo.qnorm, extra_str, upper(ModelOpts.SearchMetric), best.score);
+    fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
+            redm, rd_str, mo.Order, mo.qnorm, extra_str, best.score);
     fprintf('\n>>>>>>>>             aPC TRAIN END             <<<<<<<\n\n');
 
     return;  % 串行版本结束
@@ -216,7 +187,7 @@ if isempty(gcp('nocreate')), parpool; end
 outs(total) = struct('score', Inf);
 
 parfor gi = 1:total
-    outs(gi) = aPC_evaluateCandidate_score(data, grid(gi), map_U);
+    outs(gi) = aPC_evaluateCandidate_score(data, grid(gi));
     send(dq, gi);
 end
 
@@ -282,8 +253,8 @@ end
 % --- kernel 信息（仅 KPCA,SKPCA） ---
 extra_str = aPC_kernel_print_str(Mo);
 
-fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | %s=%e\n', ...
-        redm, rd_str, mo.Order, mo.qnorm, extra_str, upper(ModelOpts.SearchMetric), best_score);
+fprintf('[aPC_Train] Best Model: RD=%s | rd=%s | p=%d | q=%g%s | LOO=%e\n', ...
+        redm, rd_str, mo.Order, mo.qnorm, extra_str, best_score);
 end
 
 %% 打印KPCA和SKPCA的核信息

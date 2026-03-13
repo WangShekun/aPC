@@ -194,8 +194,12 @@ if any(modules == "orthogonality")
         % Normal matrix conditioning
         H = Psi' * Psi;
 
+        cPsi = cond(H);
+        fprintf('    cond(Psi''Psi) = %.3e\n', cPsi)
+
         rc = rcond(H);
         fprintf('    rcond(Psi''Psi) = %.3e\n', rc);
+        
 
         try
             ce = condest(H);

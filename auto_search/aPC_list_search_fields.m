@@ -22,10 +22,6 @@ fields = {
     'label_kernel_degree'
     'label_kernel_offset'
 
-    'mpldr_opts.max_moment_order'
-    'mpldr_opts.moment_decay'
-    'mpldr_opts.lambda_y'
-
     % Future extension:
     % 'ridge_lambda'
     % 'lasso_alpha'

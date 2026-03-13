@@ -14,6 +14,7 @@ function UQ = aPC_ComputeUQ(results, Data)
 %   E[Y]   ≈ c_0
 %   Var[Y] ≈ Σ_{k≠0} c_k^2
 % --------------------------------------------------------
+UQ.hasStats = false;
 
 c       = results.coefficients(:);
 Indices = results.Indices;   % K×M
@@ -74,7 +75,5 @@ if nargin >= 2 && isfield(Data,'Y_pred') && ~isempty(Data.Y_pred)
 
     UQ.hasStats = true;
 end
-
-UQ.hasStats = false;
 
 end

@@ -30,6 +30,9 @@ function results = aPC_RegressionMethods(X, Y, method)
 
         case 'ridge'
             results = aPC_Ridge(X, Y);
+            
+        case 'omp'
+            results = aPC_OMP(X, Y);
 
         otherwise
             error('Unsupported regression method: %s', method);
