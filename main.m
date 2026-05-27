@@ -4,11 +4,11 @@ rng(80);
 aPC
 
 ModelOpts = struct();
-ModelOpts.Order    = [14];      % 最大多项式阶数
+ModelOpts.Order    = [3];      % 最大多项式阶数
 ModelOpts.qnorm    = [0.9];       % q-norm 
 
-% ModelOpts.ReductionMethod = 'mcp';
-% ModelOpts.red_dim  = [5];
+ModelOpts.ReductionMethod = 'spca_hsic';
+ModelOpts.red_dim  = [20];
 
 % ModelOpts.kernel_type   = {'gaussian'};
 % ModelOpts.kernel_gamma  = [0.1];
@@ -47,13 +47,13 @@ ModelOpts.Parallel = 0;
 
 uqlab
 
-InputOpts = ishigami_Input;
+% InputOpts = ishigami_Input;
 
 % InputOpts = wingweight_Input;
 
 % InputOpts = morris10_Input;
 
-% InputOpts = dim100_Input;
+InputOpts = dim100_Input;
 % InputOpts = dim150_Input;
 % InputOpts = dim200_Input_Case3;
 % InputOpts = dim300_Input;
@@ -61,18 +61,18 @@ InputOpts = ishigami_Input;
 myInput = uq_createInput(InputOpts);
 
 data = struct();
-data.X_train = uq_getSample(myInput, 2000);
-data.Y_train = ishigami(data.X_train);
+data.X_train = uq_getSample(myInput, 500);
+data.Y_train = dim100(data.X_train);
 
 data.X_val   = uq_getSample(myInput, 10000);
-data.Y_val   = ishigami(data.X_val);
+data.Y_val   = dim100(data.X_val);
 
 %% 
 MetaOpts_OLS.Type = 'MetaModel';
 MetaOpts_OLS.MetaType = 'PCE';
 MetaOpts_OLS.Method = 'lars';
 MetaOpts_OLS.TruncOptions.qNorm = 0.9;
-MetaOpts_OLS.Degree = 14;
+MetaOpts_OLS.Degree = 3;
 MetaOpts_OLS.ExpDesign.X = data.X_train;
 MetaOpts_OLS.ExpDesign.Y = data.Y_train;
 MetaOpts_OLS.Display = 0;
