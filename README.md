@@ -10,7 +10,6 @@ dimension reduction, and model selection by leave-one-out (LOO) error.
 
 MATLAB. Optional dependencies:
 
-- UQLab: benchmark script `main.m`.
 - Statistics and Machine Learning Toolbox: PLS, PCA, Ridge cross-validation, and Lasso.
 - Parallel Computing Toolbox: parallel searches.
 - Manopt: MCP dimension reduction.
@@ -39,8 +38,6 @@ Ypred = aPC_Predict(Xtest, model, opts, reduction);
 ```
 
 Inputs use one sample per row: `X_train` is `N x D` and `Y_train` is `N x 1`.
-The quick start does not require UQLab. For the UQLab benchmark, initialize the
-paths as above, then run `main.m`.
 
 ## Options
 
