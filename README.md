@@ -1,157 +1,55 @@
+# aPC
 
----
-# **Arbitrary Polynomial Chaos Expansion (aPCE) Framework**
+MATLAB code for arbitrary polynomial chaos (aPC), scalar surrogate
+modeling, uncertainty quantification, and Sobol sensitivity analysis.
 
-This repository provides a modular and extensible MATLAB implementation of **Arbitrary Polynomial Chaos Expansion (aPCE)** for data-driven surrogate modeling, uncertainty quantification (UQ), and global sensitivity analysis (GSA).
-The framework supports polynomial construction, regression, optional dimension reduction, automatic hyperparameter search, and unified prediction.
+Supports moment-based and Stieltjes polynomial bases, sparse regression,
+dimension reduction, and model selection by leave-one-out (LOO) error.
 
-It is designed as a lightweight but research-grade aPCE engine for high-dimensional UQ problems.
+## Requirements
 
----
+MATLAB. Optional dependencies:
 
-## ✨ Features Overview
+- UQLab: benchmark script `main.m`.
+- Statistics and Machine Learning Toolbox: PLS, PCA, Ridge cross-validation, and Lasso.
+- Parallel Computing Toolbox: parallel searches.
+- Manopt: MCP dimension reduction.
 
-### **1. Data Processing**
+## Quick start
 
-* Standardization using sample mean μ and standard deviation σ
-* Automatic removal of zero-variance dimensions
-* Consistent transformation for both training and prediction
-* Mapping to the standardized **U-space**
+From the repository root in MATLAB:
 
----
+```matlab
+addpath('core');
+aPC;
+rng(1);
 
-### **2. Polynomial Basis Construction**
+data.X_train = 2 * rand(100, 2) - 1;
+data.Y_train = data.X_train(:, 1).^2 + data.X_train(:, 2);
 
-Two formulations supported:
+opts.Order = 2;
+opts.qnorm = 1;
+opts.aPC_Method = 'stieltjes';
+opts.RegressionMethod = 'ols';
+opts.Parallel = false;
 
-* **2012 version** (moment-based Hankel system)
-* **2018 version** (generalized moment formulation)
-
-Capabilities:
-
-* Multi-index generation (supports q-norm truncation)
-* Univariate orthogonal / orthonormal polynomial construction
-* Tensor-product multivariate basis assembly Ψ
-
----
-
-### **3. Regression Methods**
-
-Four regression solvers included:
-
-* **OLS**
-* **LARS** (default)
-* **Ridge**
-* **Lasso**
-
-All solvers output:
-
-* PCE coefficients
-* LOO / modified LOO
-* Empirical error
-* Active basis terms
-
-Unified interface: `aPC_RegressionMethods`.
-
----
-
-### **4. Optional Dimension Reduction (PLS / PCA)**
-
-* Supports **PLS** or **PCA** after standardization
-* `red_dim` can be a scalar or a vector
-* `aPC_Train` automatically selects the dimension giving the **best LOO**
-* Prediction applies the stored projection matrix
-
----
-
-### **5. Automatic Hyperparameter Selection**
-
-The following options support **scalar or vector input**:
-
-* Polynomial order `Order`
-* Truncation parameter `qnorm`
-* Reduced dimension `red_dim`
-
-`aPC_Train`:
-
-1. Generates all parameter combinations
-2. Trains models for each
-3. Computes LOO
-4. Selects the best model automatically
-
----
-
-### **6. Prediction Pipeline**
-
-Prediction automatically performs:
-
-1. Standardization (using training μ, σ)
-2. Dimension reduction (PLS/PCA)
-3. Rebuilding univariate polynomials
-4. Constructing Ψ
-5. Computing final predictions
-
-Interface: `aPC_Predict`.
-
----
-
-### **7. Uncertainty Quantification (UQ)**
-
-Provides both analytic and sample-based quantities:
-
-* Mean
-* Variance
-* Standard deviation
-* Skewness
-* Kurtosis
-* 95% confidence interval (CI)
-* VaR95 / CVaR95
-
-Interface: `aPC_printUQ`.
-
----
-
-### **8. Sensitivity Analysis**
-
-Computes Sobol’ indices:
-
-* First-order
-* Second-order
-* Total effect
-
-Interface: `aPC_ComputeSensitivity`.
-
----
-
-### **9. Visualization**
-
-Includes:
-
-* UQ plots
-* Sobol heatmaps
-* PCE diagnostic plots
-
-Located in the `display/` folder.
-
----
-
-## 📁 Directory Structure
-
-```
-aPC
-├── apc_train          % Unified training interface
-│   └── aPC_Train.m
-├── basis              % Polynomial basis construction
-├── coefficients       % Regression solvers
-├── dimreduct          % PLS / PCA
-├── predict            % Prediction
-├── UQ                 % Uncertainty quantification
-├── sensitivity        % Sobol indices
-├── display            % Visualization
-├── utils              % Helper functions
-├── benchmark          % Test functions
-├── main.m             % Example script
-└── README.md
+[model, opts, data, reduction] = aPC_Train(data, opts);
+Xtest = 2 * rand(20, 2) - 1;
+Ypred = aPC_Predict(Xtest, model, opts, reduction);
 ```
 
----
+Inputs use one sample per row: `X_train` is `N x D` and `Y_train` is `N x 1`.
+The quick start does not require UQLab. For the UQLab benchmark, initialize the
+paths as above, then run `main.m`.
+
+## Options
+
+`Order` sets the polynomial degree; `qnorm` controls hyperbolic truncation.
+Use vectors to compare candidate values. Set `ReductionMethod` and `red_dim`
+to enable dimension reduction, or `Parallel = true` for parallel searches.
+
+`aPC_Method` accepts `'2012'`, `'2018'`, or `'stieltjes'`.
+`RegressionMethod` accepts `'ols'`, `'lars'`, `'omp'`, `'ridge'`, or `'lasso'`.
+
+Use `aPC_ComputeUQ(model, data)` for statistics and
+`aPC_ComputeSensitivity(model, opts)` for Sobol indices.
